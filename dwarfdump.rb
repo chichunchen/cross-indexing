@@ -1,4 +1,25 @@
 
+# This function recursively dig into the type information of a variable.
+# Returns [type of type(base, pointer, const, array); type_name]
+def dig_type(address, whole_code)
+    res = []
+    type_info = whole_code.scan(/<#{address}>\s*DW_TAG_([a-zA-Z]+)_type/)
+    # If the size of res is 0, then find for typedef. Implement later
+    res << type_info[0][0] 
+    
+    if res[0] == "base"
+        tmp = whole_code.scan(/<#{address}>\s*DW_TAG_base_type.*?DW_AT_name\s*?(\w.*?$)/m)
+        res << tmp[0][0]
+    else
+        tmp = whole_code.scan(/<#{address}>\s*DW_TAG_#{res[0]}_type.*?DW_AT_type\s*<(\w+)>/m)
+        res << dig_type(tmp[0][0], whole_code)
+    end
+
+    return res
+
+end
+
+
 # Cannot capture typedef, enumerate, etc. "static" info cannot be found anywhere.
 
 class Variable
@@ -10,39 +31,39 @@ class Variable
         @type       = dig_type(var[4], whole_code).flatten
     end
     
-    # This function recursively dig into the type information of a variable.
-    # Returns [type of type(base, pointer, const, array); type_name]
-    def dig_type(address, whole_code)
-        res = []
-        type_info = whole_code.scan(/<#{address}>\s*DW_TAG_([a-zA-Z]+)_type/)
-        # If the size of res is 0, then find for typedef. Implement later
-        res << type_info[0][0] 
-        
-        if res[0] == "base"
-            tmp = whole_code.scan(/<#{address}>\s*DW_TAG_base_type.*?DW_AT_name\s*?(\w.*?$)/m)
-            res << tmp[0][0]
-        else
-            tmp = whole_code.scan(/<#{address}>\s*DW_TAG_#{res[0]}_type.*?DW_AT_type\s*<(\w+)>/m)
-            res << dig_type(tmp[0][0], whole_code)
-        end
-    
-        return res
-    
-    end
-    
     attr_reader :local_addr, :name, :decl_file, :lineno, :type
 end
 
 
 class Function
+    
     def initialize(block, whole_code)
         @local_addr = block[0]
-        @name       = block[1]
-        @params     = block[2].scan(/< 2><(\w+)>\s*DW_TAG_formal_parameter\s*DW_AT_name\s*(\w*$)\s*DW_AT_decl_file.*?\/([^\/]+?)\s*DW_AT_decl_line\s*(\w*$)\s*DW_AT_type\s*<(\w*)>/)
+        
+        # Here is all about type
+        if (/yes/ =~ block[1]).nil?
+            @type = ["static"]
+        else
+            @type = []
+        end
+        if (/DW_AT_type/ =~ block[5]).nil?
+            @type << "void"
+        else
+            type_addr = block[5].scan(/<(.+?)>/)[0][0]
+            @type.concat(dig_type(type_addr, whole_code).flatten)
+        end
+
+
+        @name       = block[2]
+        @decl_file  = block[3]
+        @lineno     = block[4]
+        @low_pc     = block[6]
+        @high_pc    = block[7]
+        @params     = block[8].scan(/< 2><(\w+)>\s*DW_TAG_formal_parameter\s*DW_AT_name\s*(\w*$)\s*DW_AT_decl_file.*?\/([^\/]+?)\s*DW_AT_decl_line\s*(\w*$)\s*DW_AT_type\s*<(\w*)>/)
         @params.map! { |var|
             Variable.new(var, whole_code)
         }
-        @inner_var  = extract_blocks(block[2], 2, whole_code)
+        @inner_var  = extract_blocks(block[8], 2, whole_code)
     end
 
     # The format is like:
@@ -82,7 +103,7 @@ class Function
         return res
     end
 
-    attr_reader :local_addr, :name, :params, :inner_var
+    attr_reader :local_addr, :type, :name, :low_pc, :high_pc, :params, :inner_var
 end
 
 
@@ -101,19 +122,23 @@ class DwarfDecode
            
             # What files this .c file has included (including itself)
             used_file = file[2].scan(/\/([^\/]+?\..)/)
+
             @global_var[file_name] = []
+            @functions[file_name] = []
             used_file.each do |each_file|
+                # each element is: [local_address, check_if_static, name, decl_file, decl_line, type_check_info, low_pc, high_pc, function_content, (unimportant thing)]
+                tmp_func = file[1].scan(/<(\w+)>\s*DW_TAG_subprogram(.*?)DW_AT_name\s*(\w+$)\s*DW_AT_decl_file.*?(#{each_file[0]})\s*DW_AT_decl_line\s*(\w*$)\s*(.*?)DW_AT_low_pc\s*(\w+$)\s*DW_AT_high_pc\s*<offset-from-lowpc>(\d+$)(.*?)(< 1>|\z)/m)
+                
                 # each element is: [local_address, name, decl_file_name, lineno(hex), type(address)]
-                tmp = file[1].scan(/< 1><(\w+)>\s*DW_TAG_variable\s*DW_AT_name\s*(\w*$)\s*DW_AT_decl_file.*?(#{each_file[0]})\s*DW_AT_decl_line\s*(\w*$)\s*DW_AT_type\s*<(\w*)>/)
-                @global_var[file_name].concat(tmp)
+                tmp_var = file[1].scan(/< 1><(\w+)>\s*DW_TAG_variable\s*DW_AT_name\s*(\w*$)\s*DW_AT_decl_file.*?(#{each_file[0]})\s*DW_AT_decl_line\s*(\w*$)\s*DW_AT_type\s*<(\w*)>/)
+                @global_var[file_name].concat(tmp_var)
+                @functions[file_name].concat(tmp_func)
             end
 
             @global_var[file_name].map! { |var|
                 Variable.new(var, file[1])
             }
         
-            # each element is: [local_address, name, function_content, (unimportant thing)]
-            @functions[file_name] = file[1].scan(/<(\w+)>\s*DW_TAG_subprogram.*?DW_AT_name\s*(\w*$)(.*?)(< 1>|\z)/m)
             @functions[file_name].map! { |block|
                 Function.new(block, file[1])
             }
@@ -132,3 +157,5 @@ class DwarfDecode
     
 end    
 
+debug = DwarfDecode.new "#{ARGV[0]}"
+p debug.functions

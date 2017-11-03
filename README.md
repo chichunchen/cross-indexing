@@ -12,8 +12,13 @@
 
     - Function class
         - @local_addr : 0x????????
+        - @type       : including void, static, etc
+        - @decl_file
+        - @lineno
+        - @low_pc     : real address(hex) that matches objdump info.
+        - @high_pc    : a dec number to be added to low_pc
         - @name
-        - @params : list of Variable
+        - @params     : list of Variable
         - @inner_var
             - The format is like: [..., [[...], [...]], [..., [..., [...]]]].
             - Each [] is like a {} in C code, the sequence is the same as in the C code.
