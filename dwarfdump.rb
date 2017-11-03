@@ -90,11 +90,13 @@ class DwarfDecode
     def initialize(output)
         # each element is: [file_name, debug_info_content, debug_line_content]
         
+        dwarfdump = %x{ ~cs254/bin/dwarfdump #{output} }
+
         @global_var = Hash.new
         @line_info  = Hash.new
         @functions  = Hash.new
 
-        debug_info = output.scan(/COMPILE_UNIT.+?DW_AT_language.+?$\s*DW_AT_name\s*(.+?$).+?LOCAL_SYMBOLS(.+?)\.debug_line(.+?)\.debug_macro/m)
+        debug_info = dwarfdump.scan(/COMPILE_UNIT.+?DW_AT_language.+?$\s*DW_AT_name\s*(.+?$).+?LOCAL_SYMBOLS(.+?)\.debug_line(.+?)\.debug_macro/m)
         debug_info.each do |file|
             
             file_name = file[0].split('.')[0]
@@ -113,6 +115,10 @@ class DwarfDecode
            
             # each element is: [real_address, lineno]
             @line_info[file_name] = file[2].scan(/(0x\w+)\s*\[\s*(\d+),/)
+            @line_info[file_name].map! { |tuple|
+                [tuple[-1].to_i, tuple[0]]                
+            }
+            @line_info[file_name] = @line_info[file_name].to_h
         end
 
     end
@@ -121,9 +127,5 @@ class DwarfDecode
     
 end    
 
-
-# Store dwarfdump output
-dwarfdump = %x{ ~cs254/bin/dwarfdump #{ARGV[0]} }
-
-debug = DwarfDecode.new(dwarfdump)
-puts debug.functions
+debug = DwarfDecode.new("a.out")
+puts debug.line_info
