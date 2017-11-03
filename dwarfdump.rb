@@ -5,7 +5,7 @@ class Variable
     def initialize(var, whole_code)
         @local_addr = var[0]
         @name       = var[1]
-        @extension  = var[2]
+        @decl_file  = var[2]
         @lineno     = var[3]
         @type       = dig_type(var[4], whole_code).flatten
     end
@@ -30,7 +30,7 @@ class Variable
     
     end
     
-    attr_reader :local_addr, :name, :extension, :lineno, :type
+    attr_reader :local_addr, :name, :decl_file, :lineno, :type
 end
 
 
@@ -38,7 +38,7 @@ class Function
     def initialize(block, whole_code)
         @local_addr = block[0]
         @name       = block[1]
-        @params     = block[2].scan(/< 2><(\w+)>\s*DW_TAG_formal_parameter\s*DW_AT_name\s*(\w*$)\s*DW_AT_decl_file.*?\.(c|h)$\s*DW_AT_decl_line\s*(\w*$)\s*DW_AT_type\s*<(\w*)>/)
+        @params     = block[2].scan(/< 2><(\w+)>\s*DW_TAG_formal_parameter\s*DW_AT_name\s*(\w*$)\s*DW_AT_decl_file.*?\/([^\/]+?)\s*DW_AT_decl_line\s*(\w*$)\s*DW_AT_type\s*<(\w*)>/)
         @params.map! { |var|
             Variable.new(var, whole_code)
         }
@@ -49,7 +49,7 @@ class Function
     # [..., [[...], [...]], [..., [..., [...]]]] 
     # Each [] is like a {} in C code, the sequence is the same as in the C code.
     def extract_blocks(code, scope_no, whole_code)
-        res = code.scan(/< #{scope_no}><(\w+)>\s*DW_TAG_variable\s*DW_AT_name\s*(\w*$)\s*DW_AT_decl_file.*?\.(c|h)\s*DW_AT_decl_line\s*(\w*$)\s*DW_AT_type\s*<(\w*)>/)
+        res = code.scan(/< #{scope_no}><(\w+)>\s*DW_TAG_variable\s*DW_AT_name\s*(\w*$)\s*DW_AT_decl_file.*?\/([^\/]+?)\s*DW_AT_decl_line\s*(\w*$)\s*DW_AT_type\s*<(\w*)>/)
         res.map! { |var|
             Variable.new(var, whole_code)
         } 
@@ -70,7 +70,7 @@ class Function
         end
         lexical.each do |scope|
             # each element is: [local_address, variable_name, lineno(hex), type(address)]
-            vars = scope[0].scan(/< #{scope_no + 1}><(\w+)>\s*DW_TAG_variable\s*DW_AT_name\s*(\w*$)\s*DW_AT_decl_file.*?\.(c|h)$\s*DW_AT_decl_line\s*(\w*$)\s*DW_AT_type\s*<(\w*)>/)
+            vars = scope[0].scan(/< #{scope_no + 1}><(\w+)>\s*DW_TAG_variable\s*DW_AT_name\s*(\w*$)\s*DW_AT_decl_file.*?\/([^\/]+?)\s*DW_AT_decl_line\s*(\w*$)\s*DW_AT_type\s*<(\w*)>/)
             vars.map! { |var|
                 Variable.new(var, whole_code)
             }
@@ -97,10 +97,18 @@ class DwarfDecode
         debug_info = output.scan(/COMPILE_UNIT.+?DW_AT_language.+?$\s*DW_AT_name\s*(.+?$).+?LOCAL_SYMBOLS(.+?)\.debug_line(.+?)\.debug_macro/m)
         debug_info.each do |file|
             
-            file_name = file[0].split('.')[0]
-            
-            # each element is: [local_address, name, extension(.c or .h), lineno(hex), type(address)]
-            @global_var[file_name] = file[1].scan(/< 1><(\w+)>\s*DW_TAG_variable\s*DW_AT_name\s*(\w*$)\s*DW_AT_decl_file.*?#{file_name}\.(c|h)\s*DW_AT_decl_line\s*(\w*$)\s*DW_AT_type\s*<(\w*)>/)
+            file_name = file[0] # .split('.')[0]
+           
+            # What files this .c file has included (including itself)
+            used_file = file[2].scan(/\/([^\/]+?\..)/)
+            @global_var[file_name] = []
+            used_file.each do |each_file|
+                # each element is: [local_address, name, decl_file_name, lineno(hex), type(address)]
+                tmp = file[1].scan(/< 1><(\w+)>\s*DW_TAG_variable\s*DW_AT_name\s*(\w*$)\s*DW_AT_decl_file.*?(#{each_file[0]})\s*DW_AT_decl_line\s*(\w*$)\s*DW_AT_type\s*<(\w*)>/)
+                @global_var[file_name].concat(tmp)
+            end
+            p @global_var[file_name]
+
             @global_var[file_name].map! { |var|
                 Variable.new(var, file[1])
             }
@@ -125,3 +133,4 @@ end
 # Store dwarfdump output
 
 debug = DwarfDecode.new(ARGV[0])
+
