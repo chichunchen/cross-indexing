@@ -87,9 +87,9 @@ end
 
 
 class DwarfDecode
-    def initialize(output)
+    def initialize(src_file)
         # each element is: [file_name, debug_info_content, debug_line_content]
-        
+        output = %x{ ~cs254/bin/dwarfdump #{src_file} }
         @global_var = Hash.new
         @line_info  = Hash.new
         @functions  = Hash.new
@@ -123,7 +123,5 @@ end
 
 
 # Store dwarfdump output
-dwarfdump = %x{ ~cs254/bin/dwarfdump #{ARGV[0]} }
 
-debug = DwarfDecode.new(dwarfdump)
-puts debug.functions
+debug = DwarfDecode.new(ARGV[0])
