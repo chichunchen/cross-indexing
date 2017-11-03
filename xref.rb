@@ -19,6 +19,15 @@ class HTMLWriter
         end
     end
 
+    def hasBranch? code
+      if not code.include? "$" and code.match /\d\w{5}/
+        true
+      else
+        false
+      end
+    end
+
+    # Print the whole source and assembly using given source filename
     def printHtmlBody filename
         source = filename
         dest = filename + ".html"
@@ -44,7 +53,21 @@ class HTMLWriter
                   # puts "start #{objdump.instructions[block_start]}"
                   (block_start...block_end).each do |i|
                     if not objdump.instructions[i].nil?
-                      output.puts "#{i.to_s(16)}: #{objdump.instructions[i]}"
+                      if hasBranch? objdump.instructions[i][:code]
+                        tag = objdump.instructions[i][:code].match /\d\w{5}/
+                        output.print '<a href="#'
+                        output.print tag
+                        output.print '"'
+                        output.print '>'
+                        output.puts "<p id=\"#{i.to_s(16)}\">"
+                        output.puts "#{i.to_s(16)}: #{objdump.instructions[i]}"
+                        output.puts "</p>"
+                        output.puts '</a>'
+                      else
+                        output.puts "<p id=\"#{i.to_s(16)}\">"
+                        output.puts "#{i.to_s(16)}: #{objdump.instructions[i]}"
+                        output.puts "</p>"
+                      end
                     end
                   end
                   # puts "end"
