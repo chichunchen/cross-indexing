@@ -107,7 +107,6 @@ class DwarfDecode
                 tmp = file[1].scan(/< 1><(\w+)>\s*DW_TAG_variable\s*DW_AT_name\s*(\w*$)\s*DW_AT_decl_file.*?(#{each_file[0]})\s*DW_AT_decl_line\s*(\w*$)\s*DW_AT_type\s*<(\w*)>/)
                 @global_var[file_name].concat(tmp)
             end
-            p @global_var[file_name]
 
             @global_var[file_name].map! { |var|
                 Variable.new(var, file[1])
@@ -121,6 +120,10 @@ class DwarfDecode
            
             # each element is: [real_address, lineno]
             @line_info[file_name] = file[2].scan(/(0x\w+)\s*\[\s*(\d+),/)
+            @line_info[file_name].map! { |tuple|
+                [tuple[-1].to_i, tuple[0]]                
+            }
+            @line_info[file_name] = @line_info[file_name].to_h
         end
 
     end
@@ -128,9 +131,4 @@ class DwarfDecode
     attr_reader :global_var, :line_info, :functions
     
 end    
-
-
-# Store dwarfdump output
-
-debug = DwarfDecode.new(ARGV[0])
 

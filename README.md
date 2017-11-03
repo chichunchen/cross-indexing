@@ -7,7 +7,7 @@
     - DwarfDecode class
         - @global_var : hash {filename => Variable instances} 
         - @line_info  : hash {filename => content}
-            - each element of content is: [real_address, lineno]
+            - each element of content is: hash {lineno => real_address}
         - @functions  : hash {filename => Function instances}
 
     - Function class
@@ -22,7 +22,7 @@
     - Variable class
         - @local_addr : 0x????????
         - @name
-        - @extension  : the file extension name. Can make it whole filename here.
+        - @decl_file  : the whole filename where the variable is declared.
         - @lineno     : hex value of line number
         - @type       : list of type names
             - last one is base_type name
