@@ -23,6 +23,8 @@ end
 # Cannot capture typedef, enumerate, etc. "static" info cannot be found anywhere.
 
 class Variable
+    attr_reader :local_addr, :name, :decl_file, :lineno, :type
+
     def initialize(var, whole_code)
         @local_addr = var[0]
         @name       = var[1]
@@ -30,12 +32,11 @@ class Variable
         @lineno     = var[3]
         @type       = dig_type(var[4], whole_code).flatten
     end
-    
-    attr_reader :local_addr, :name, :decl_file, :lineno, :type
 end
 
 
 class Function
+    attr_reader :local_addr, :type, :name, :low_pc, :high_pc, :params, :inner_var
     
     def initialize(block, whole_code)
         @local_addr = block[0]
@@ -102,18 +103,19 @@ class Function
 
         return res
     end
-
-    attr_reader :local_addr, :type, :name, :low_pc, :high_pc, :params, :inner_var
 end
 
 
 class DwarfDecode
+    attr_reader :global_var, :line_info, :functions, :assembly2source
+
     def initialize(src_file)
         # each element is: [file_name, debug_info_content, debug_line_content]
         output = %x{ ~cs254/bin/dwarfdump #{src_file} }
-        @global_var = Hash.new
-        @line_info  = Hash.new
-        @functions  = Hash.new
+        @global_var = {}
+        @line_info  = {}
+        @assembly2source = {}
+        @functions  = {}
 
         debug_info = output.scan(/COMPILE_UNIT.+?DW_AT_language.+?$\s*DW_AT_name\s*(.+?$).+?LOCAL_SYMBOLS(.+?)\.debug_line(.+?)\.debug_macro/m)
         debug_info.each do |file|
@@ -144,18 +146,20 @@ class DwarfDecode
             }
            
             # each element is: [real_address, lineno]
-            @line_info[file_name] = file[2].scan(/(0x\w+)\s*\[\s*(\d+),/)
+            assemlbyAndSourceTable = file[2].scan(/(0x\w+)\s*\[\s*(\d+),/)
+            @line_info[file_name] = assemlbyAndSourceTable
             @line_info[file_name].map! { |tuple|
                 [tuple[-1].to_i, tuple[0]]                
             }
             @line_info[file_name] = @line_info[file_name].to_h
+
+            assemlbyAndSourceTable.each do |e|
+              @assembly2source[e[1].to_i(16)] = e[0]
+            end
+            # p @assembly2source
         end
-
     end
-
-    attr_reader :global_var, :line_info, :functions
-    
 end    
 
 debug = DwarfDecode.new "#{ARGV[0]}"
-p debug.functions
+p debug.line_info
