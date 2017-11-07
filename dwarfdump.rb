@@ -162,4 +162,4 @@ class DwarfDecode
 end    
 
 debug = DwarfDecode.new "#{ARGV[0]}"
-p debug.line_info
+# p debug.line_info

@@ -27,8 +27,22 @@ class Objdump
         instruction = Instruction.new m[1], m[2], last_func_name
         @functions[last_func_name].add_instruction instruction
         # @instructions[m[1].to_i(16)] = {:code => m[2], :func => last_func_name}
-        @instructions << { :addr => m[1].to_i(16), :code => m[2] }
+        @instructions << { :debug => m[1], :addr => m[1].to_i(16), :code => m[2] }
       end
+    end
+
+    # return an array of instructions by given start address and end address
+    # start address should smaller than end address
+    def getInstructionsByRange start_addr, end_addr
+      result = []
+      @instructions.each_with_object(result) do |instruction, acc|
+        if instruction[:addr] >= start_addr and instruction[:addr] < end_addr
+          acc << instruction
+        elsif instruction[:addr] >= end_addr
+          break
+        end
+      end
+      result
     end
 
     def to_s
@@ -66,4 +80,4 @@ end
 
 # test
 ooo = Objdump.new "a.out"
-puts ooo.to_s
+p ooo.getInstructionsByRange(4195712, 4195728)

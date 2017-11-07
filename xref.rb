@@ -42,8 +42,15 @@ class HTMLWriter
     @filename = filename
     @dwarf = DwarfDecode.new "#{ARGV[0]}"
     @objdump = Objdump.new "#{ARGV[0]}"
+    @source = []
+    File.open(filename, "r") do |input|
+      input.each_line.with_index do |line, index|
+        @source[index+1] = line
+      end
+    end
   end
 
+  # write the webpage with assembly & source
   def write
     dest = @filename + ".html"
 
@@ -72,13 +79,30 @@ class HTMLWriter
 
     dline_info = @dwarf.line_info[@filename]
     block_start = nil
-    code_block = ""
+    code_block = { :start => 0, :end => 0}
+    start_addr = nil
 
     File.open("./" + @filename, "r") do |input|
       File.open(dest, "a") do |output|
-        output.puts "<!-- #{@filename} -->"
-        @objdump.instructions.each do |assembly|
-          
+        output.puts "\t<!-- #{@filename} -->"
+        @dwarf.assembly2source.each do |pair|
+          addr = pair[0]
+          source_line = pair[1]
+
+          if not start_addr.nil?
+            output.puts "\t<tr>"
+            output.puts "\t\t<td>"
+            output.puts "\t\t\t#{@source[source_line]}"
+            output.puts "\t\t</td>"
+            output.puts "\t\t<td>"
+            @objdump.getInstructionsByRange(start_addr, addr).each do |ins|
+              output.puts "\t\t\t#{ins[:addr].to_s(16)}: #{ins[:code]}<br>"
+            end
+            output.puts "\t\t</td>"
+            output.puts "\t</tr>"
+          end
+
+          start_addr = addr
         end
       end # end append
     end # end read
