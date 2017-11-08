@@ -22,7 +22,7 @@ http://www.cs.rochester.edu/courses/254/fall2017/assignments/xref.shtml
             - if not ET or no uri, the element is `nil`.
         - @functions  : hash {filename => Function instances}
         - @subroutine : has  {filename => Subroutine content}
-            - each element of subroutine content is: [local_addr refer to function name, low_pc, high_pc, call_file, call_line]
+            - each element of subroutine content is: {:local_addr => 0x.. :low_pc => 0x.., high_pc => dec, call_file => *.c|h, call_line => 0x..}
 
     - Function class
         - @local_addr : 0x????????

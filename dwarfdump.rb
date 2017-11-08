@@ -144,6 +144,9 @@ class DwarfDecode
             end
 
             @subroutine[file_name] = @subroutine[file_name].uniq
+            @subroutine[file_name].map! { |sub|
+                {:local_addr => sub[0], :low_pc => sub[1], :high_pc => sub[2], :call_file => sub[3], :call_line => sub[4]}
+            }
 
             @global_var[file_name].map! { |var|
                 Variable.new(var, file[1])
