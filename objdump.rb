@@ -33,6 +33,10 @@ class Objdump
       end
     end
 
+    @instructions.sort_by! do |obj|
+      obj[:addr]
+    end
+
     # return an array of instructions by given start address and end address
     # start address should smaller than end address
     def getInstructionsByRange start_addr, end_addr
@@ -82,5 +86,6 @@ end
 
 # test
 ooo = Objdump.new "a.out"
+#p ooo.to_s
 # p ooo.functions['func']
 # p ooo.getInstructionsByRange(4195712, 4195728)

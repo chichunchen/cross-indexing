@@ -70,31 +70,36 @@ class HTMLWriter
     dest = @filename + ".html"
     dline_info = @dwarf.line_info[@filename]
     start_addr = nil
-    start_source_line = 1
+    last_source_block = [nil, nil]
 
     File.open("./" + @filename, "r") do |input|
       File.open(dest, "a") do |output|
         output.puts "\t<!-- #{@filename} -->"
         dline_info.each do |pair|
+          print @filename
+          p pair
           last_addr = pair[0]
+          p last_addr.to_s 16
           last_source_line = pair[1]
 
           # if not first loop and also have different source line
           if not start_addr.nil? and start_addr != last_addr
             output.puts "\t<tr>"
             output.puts "\t\t<td>"
-            (start_source_line...last_source_line).each do |element|
-              output.puts "\t\t\t#{@source[element]}"
+
+            if last_source_block[0] == last_source_block[1]
+              output.puts "\t\t\t#{@source[last_source_block[0]]}<br>"
+              last_source_block[1] = last_source_line
+            elsif last_source_block[0] < last_source_block[1]
+              ((last_source_block[0]+1)..last_source_block[1]).each do |e|
+                output.puts "\t\t\t#{@source[e]}<br>"
+              end
+              last_source_block[0] = last_source_block[1]
+              last_source_block[1] = last_source_line
+            elsif last_source_line > last_source_block[1]
+              last_source_block[1] = last_source_line
             end
 
-            # check if it's the end of the file, then print all remaining
-            # source line
-            if pair == dline_info.last
-              (@source[last_source_line]..@source.last).each do |element|
-                output.puts "\t\t\t#{element}"
-              end
-              output.puts "\t\t\t#{@source.last}" # weird
-            end
             output.puts "\t\t</td>" # end of source td
 
             output.puts "\t\t<td>"
@@ -115,10 +120,13 @@ class HTMLWriter
             output.puts "\t\t</td>" # end of instruction td
             output.puts "\t</tr>"
 
-            start_source_line = last_source_line
-          end
+          end # end if not first loop
 
           start_addr = last_addr
+          if last_source_block == [nil, nil]
+            last_source_block = [last_source_line, last_source_line]
+          end
+          p last_source_block
         end
       end # end append
     end # end read
@@ -128,4 +136,6 @@ end
 c_files = Dir["*.c"]
 h_files = Dir["*.h"]
 test = HTMLWriter.new "bar.c"
+test.write
+test = HTMLWriter.new "foo.c"
 test.write

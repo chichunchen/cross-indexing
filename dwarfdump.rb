@@ -150,9 +150,12 @@ class DwarfDecode
             @line_info[file_name].map! { |tuple|
               [tuple[0].to_i(16), tuple[1].to_i]
             }
+            @line_info[file_name].sort_by! do |obj| 
+              obj[0]
+            end
         end
     end
 end    
 
 debug = DwarfDecode.new "#{ARGV[0]}"
-# p debug.line_info
+# p debug.functions
