@@ -21,6 +21,8 @@ http://www.cs.rochester.edu/courses/254/fall2017/assignments/xref.shtml
             - each element of content is: hash {real_address => [lineno, "ET", uri's filename(str)]}
             - if not ET or no uri, the element is `nil`.
         - @functions  : hash {filename => Function instances}
+        - @subroutine : has  {filename => Subroutine content}
+            - each element of subroutine content is: [local_addr refer to function name, low_pc, high_pc, call_file, call_line]
 
     - Function class
         - @local_addr : 0x????????
