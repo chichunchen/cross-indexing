@@ -18,7 +18,8 @@ http://www.cs.rochester.edu/courses/254/fall2017/assignments/xref.shtml
     - DwarfDecode class
         - @global_var : hash {filename => Variable instances} 
         - @line_info  : hash {filename => content}
-            - each element of content is: hash {lineno => real_address}
+            - each element of content is: hash {real_address => [lineno, "ET", uri's filename(str)]}
+            - if not ET or no uri, the element is `nil`.
         - @functions  : hash {filename => Function instances}
 
     - Function class

@@ -144,11 +144,11 @@ class DwarfDecode
                 Function.new(block, file[1])
             }
            
-            # each element is: [real_address, lineno]
-            sourcelineAndAssembly = file[2].scan(/(0x\w+)\s*\[\s*(\d+),/)
+            # each element is: [real_address, lineno, uri or ET msg]
+            sourcelineAndAssembly = file[2].scan(/(0x\w+)\s*\[\s*(\d+),.+?NS(.*$)/)
             @line_info[file_name] = sourcelineAndAssembly
             @line_info[file_name].map! { |tuple|
-              [tuple[0].to_i(16), tuple[1].to_i]
+                [tuple[0].to_i(16), [tuple[1].to_i, tuple[2].scan(/ET/)[0], tuple[2].scan(/[^\/]+?\../)[0]]]
             }
         end
     end
