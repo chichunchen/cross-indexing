@@ -107,14 +107,13 @@ end
 
 
 class DwarfDecode
-    attr_reader :global_var, :line_info, :functions, :assembly2source
+    attr_reader :global_var, :line_info, :functions
 
     def initialize(src_file)
         # each element is: [file_name, debug_info_content, debug_line_content]
         output = %x{ ~cs254/bin/dwarfdump #{src_file} }
         @global_var = {}
-        @line_info  = {}
-        @assembly2source = {}
+        @line_info  = {}      # for drive instructions
         @functions  = {}
 
         debug_info = output.scan(/COMPILE_UNIT.+?DW_AT_language.+?$\s*DW_AT_name\s*(.+?$).+?LOCAL_SYMBOLS(.+?)\.debug_line(.+?)\.debug_macro/m)
@@ -146,17 +145,11 @@ class DwarfDecode
             }
            
             # each element is: [real_address, lineno]
-            assemlbyAndSourceTable = file[2].scan(/(0x\w+)\s*\[\s*(\d+),/)
-            @line_info[file_name] = assemlbyAndSourceTable
+            sourcelineAndAssembly = file[2].scan(/(0x\w+)\s*\[\s*(\d+),/)
+            @line_info[file_name] = sourcelineAndAssembly
             @line_info[file_name].map! { |tuple|
-                [tuple[-1].to_i, tuple[0]]                
+              [tuple[0].to_i(16), tuple[1].to_i]
             }
-            @line_info[file_name] = @line_info[file_name].to_h
-
-            assemlbyAndSourceTable.each do |e|
-              @assembly2source[e[1].to_i(16)] = e[0]
-            end
-            # p @assembly2source
         end
     end
 end    

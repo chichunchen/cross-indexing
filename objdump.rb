@@ -1,10 +1,11 @@
 class Objdump
-  attr_reader :filename, :functions, :instructions
+  attr_reader :filename, :functions, :instructions, :instructions_hash
 
   def initialize(filename)
     @filename = filename
     @functions = {}
     @instructions = []
+    @instructions_hash = {}
 
     output = %x{ objdump -d #{filename} }
 
@@ -28,6 +29,7 @@ class Objdump
         @functions[last_func_name].add_instruction instruction
         # @instructions[m[1].to_i(16)] = {:code => m[2], :func => last_func_name}
         @instructions << { :debug => m[1], :addr => m[1].to_i(16), :code => m[2] }
+        @instructions_hash[m[1].to_i(16)] = {:code => m[2], :func => last_func_name}
       end
     end
 
@@ -58,7 +60,7 @@ class Objdump
 
     # address is int
     def initialize address, code, func
-      @address = address
+      @address = address.to_i(16)
       @code = code
       @func = func
     end
@@ -73,11 +75,12 @@ class Objdump
     end
 
     def add_instruction instruction
-      @instructions << instruction.code
+      @instructions << { :code => instruction.code, :addr => instruction.address }
     end
   end
 end
 
 # test
 ooo = Objdump.new "a.out"
-p ooo.getInstructionsByRange(4195712, 4195728)
+# p ooo.functions['func']
+# p ooo.getInstructionsByRange(4195712, 4195728)

@@ -65,44 +65,60 @@ class HTMLWriter
     end
   end
 
-  def hasBranch? code
-    if not code.include? "$" and code.match /\d\w{5}/
-      true
-    else
-      false
-    end
-  end
-
   # Print the whole source and assembly using given source filename
   def printHtmlBody
     dest = @filename + ".html"
-
     dline_info = @dwarf.line_info[@filename]
-    block_start = nil
-    code_block = { :start => 0, :end => 0}
     start_addr = nil
+    start_source_line = 1
 
     File.open("./" + @filename, "r") do |input|
       File.open(dest, "a") do |output|
         output.puts "\t<!-- #{@filename} -->"
-        @dwarf.assembly2source.each do |pair|
-          addr = pair[0]
-          source_line = pair[1]
+        dline_info.each do |pair|
+          last_addr = pair[0]
+          last_source_line = pair[1]
 
-          if not start_addr.nil?
+          # if not first loop and also have different source line
+          if not start_addr.nil? and start_addr != last_addr
             output.puts "\t<tr>"
             output.puts "\t\t<td>"
-            output.puts "\t\t\t#{@source[source_line]}"
-            output.puts "\t\t</td>"
+            (start_source_line...last_source_line).each do |element|
+              output.puts "\t\t\t#{@source[element]}"
+            end
+
+            # check if it's the end of the file, then print all remaining
+            # source line
+            if pair == dline_info.last
+              (@source[last_source_line]..@source.last).each do |element|
+                output.puts "\t\t\t#{element}"
+              end
+              output.puts "\t\t\t#{@source.last}" # weird
+            end
+            output.puts "\t\t</td>" # end of source td
+
             output.puts "\t\t<td>"
-            @objdump.getInstructionsByRange(start_addr, addr).each do |ins|
+            @objdump.getInstructionsByRange(start_addr, last_addr).each do |ins|
               output.puts "\t\t\t#{ins[:addr].to_s(16)}: #{ins[:code]}<br>"
             end
-            output.puts "\t\t</td>"
+
+            # check if it's the end of the file, then print all remaining
+            # assembly line
+            if pair == dline_info.last
+              func_name = @objdump.instructions_hash[last_addr][:func]
+              last_instrct =  @objdump.functions[func_name].instructions.last[:addr]
+              @objdump.getInstructionsByRange(last_addr, last_instrct).each do |ins|
+                output.puts "\t\t\t#{ins[:addr].to_s(16)}: #{ins[:code]}<br>"
+              end
+            end
+
+            output.puts "\t\t</td>" # end of instruction td
             output.puts "\t</tr>"
+
+            start_source_line = last_source_line
           end
 
-          start_addr = addr
+          start_addr = last_addr
         end
       end # end append
     end # end read
@@ -111,7 +127,5 @@ end
 
 c_files = Dir["*.c"]
 h_files = Dir["*.h"]
-c_files.each do |dot_c|
-    test = HTMLWriter.new dot_c
-    test.write
-end
+test = HTMLWriter.new "bar.c"
+test.write
