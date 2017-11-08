@@ -71,6 +71,7 @@ class HTMLWriter
     dline_info = @dwarf.line_info[@filename]
     start_addr = nil
     last_source_block = [nil, nil]
+    last_diff_file = nil
 
     File.open("./" + @filename, "r") do |input|
       File.open(dest, "a") do |output|
@@ -78,26 +79,46 @@ class HTMLWriter
         dline_info.each do |pair|
           print @filename
           p pair
-          last_addr = pair[0]
+          last_addr = pair[:assembly_lineno]
           p last_addr.to_s 16
-          last_source_line = pair[1]
+          last_source_line = pair[:source_lineno]
 
-          # if not first loop and also have different source line
+          # If both not first loop and have different source line.
+          # Print out the source line using the source_block
+          # from last iteration
           if not start_addr.nil? and start_addr != last_addr
             output.puts "\t<tr>"
             output.puts "\t\t<td>"
 
-            if last_source_block[0] == last_source_block[1]
-              output.puts "\t\t\t#{@source[last_source_block[0]]}<br>"
+            # if last iteration has a given uri that is not same as @filename
+            # then we flush it in this iteration
+            if last_diff_file
+              output.puts "outerrrr #{last_source_line} : #{last_diff_file}"
+              # write outer source file
+              # ...
+
+              # make sure the last_source_block is not [0] < [1]
               last_source_block[1] = last_source_line
-            elsif last_source_block[0] < last_source_block[1]
-              ((last_source_block[0]+1)..last_source_block[1]).each do |e|
-                output.puts "\t\t\t#{@source[e]}<br>"
+              last_diff_file = nil
+            else
+              if not pair[:uri].nil? and @filename != pair[:uri]
+                last_diff_file = pair[:uri]
               end
-              last_source_block[0] = last_source_block[1]
-              last_source_block[1] = last_source_line
-            elsif last_source_line > last_source_block[1]
-              last_source_block[1] = last_source_line
+
+              # print out single source line
+              if last_source_block[0] == last_source_block[1]
+                output.puts "\t\t\t#{@source[last_source_block[0]]}<br>"
+                last_source_block[1] = last_source_line
+
+              # print out the whole block of source line
+              elsif last_source_block[0] < last_source_block[1]
+                ((last_source_block[0]+1)..last_source_block[1]).each do |e|
+                  output.puts "\t\t\t#{@source[e]}<br>"
+                end
+                last_source_block[0] = last_source_block[1]
+                last_source_block[1] = last_source_line
+              end
+  
             end
 
             output.puts "\t\t</td>" # end of source td
@@ -120,9 +141,22 @@ class HTMLWriter
             output.puts "\t\t</td>" # end of instruction td
             output.puts "\t</tr>"
 
+            if pair[:end]
+              puts "end start_addr: #{start_addr}, block: #{last_source_block}"
+              start_addr = nil
+            else
+              start_addr = last_addr
+            end
+
+          #
+          elsif start_addr == last_addr
+            puts "check #{last_source_line}"
+
+          # start_addr is nil
+          else
+            start_addr = last_addr
           end # end if not first loop
 
-          start_addr = last_addr
           if last_source_block == [nil, nil]
             last_source_block = [last_source_line, last_source_line]
           end
