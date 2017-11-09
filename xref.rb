@@ -67,7 +67,7 @@ class HTMLWriter
   end
 
   # Write c source to web page using an [start, end] array
-  def writeSource source_block
+  def writeSource source_block, endFlag=nil
     @out.puts "\t\t<td>"
     if source_block[0] != source_block[1]
       (source_block[0]..source_block[1]).each do |e|
@@ -80,12 +80,29 @@ class HTMLWriter
   end
 
   # Write instruction to web page using given start and end assembly address
-  def writeInstruction start_addr, last_addr
+  # use endFlag to deal with outputing the remaining instructions in the function
+  # that the address in range[0].
+  def writeInstruction range, endFlag=nil
+    if endFlag.nil?
+      start_addr, last_addr = range[0], range[1]
+    elsif endFlag == true
+      name = @objdump.instructions_hash[range[0]][:func]
+      start_addr = range[0]
+      last_addr = @objdump.functions[name].instructions.last[:addr] + 1
+    end
     @out.puts "\t\t<td>"
     @objdump.getInstructionsByRange(start_addr, last_addr).each do |ins|
       @out.puts "\t\t\t#{ins[:addr].to_s(16)}: #{ins[:code]}<br>"
     end
     @out.puts "\t\t</td>" # end of instruction td
+  end
+
+  # Write source and instruction using given range
+  def writeCode sourceRange, instructRange, endFlag=nil
+    @out.puts "\t<tr>"
+    writeSource sourceRange, endFlag
+    writeInstruction instructRange, endFlag
+    @out.puts "\t</tr>"
   end
 
   # Print the whole source and assembly using given source filename
@@ -111,27 +128,27 @@ class HTMLWriter
 
           # check uri is another file
           elsif not pair[:uri].nil? and @filename != pair[:uri]
-            output.puts "\t<tr>"
-            writeSource last_source_block
-            writeInstruction start_addr, pair[:assembly_lineno]
-            output.puts "\t</tr>"
+            writeCode last_source_block, [start_addr, pair[:assembly_lineno]]
+
+            # update
             last_source_block[0] = pair[:source_lineno]+1
             start_addr = pair[:assembly_lineno]
             last_diff_file = pair[:uri]
 
           # if the last iteration has a different uri
           elsif last_diff_file
-            output.puts "\t\t<td>"
             # should print all from source file
             output.puts "\t<tr>"
+            output.puts "\t\t<td>"
             output.puts "outerrrr #{pair[:source_lineno]} : #{last_diff_file}"
             output.puts "\t\t</td>"
-            writeInstruction start_addr, pair[:assembly_lineno]
+            writeInstruction [start_addr, pair[:assembly_lineno]]
             output.puts "\t</tr>"
 
+            # update
+            puts "test last difffile"
             last_source_block[0] = last_source_block[1]+1
             last_source_block[1] = pair[:source_lineno]
-            puts "test last difffile"
             p last_source_block
             last_diff_file = nil
             start_addr = pair[:assembly_lineno]
@@ -144,10 +161,7 @@ class HTMLWriter
           # addr up and source up
           elsif pair[:assembly_lineno] > start_addr and
                 pair[:source_lineno] > last_source_block[1]
-            output.puts "\t<tr>"
-            writeSource last_source_block
-            writeInstruction start_addr, pair[:assembly_lineno]
-            output.puts "\t</tr>"
+            writeCode last_source_block, [start_addr, pair[:assembly_lineno]]
 
             # update
             start_addr = pair[:assembly_lineno]
@@ -157,10 +171,7 @@ class HTMLWriter
           # addr up and source down
           elsif pair[:assembly_lineno] > start_addr and
                 pair[:source_lineno] < last_source_block[1]
-            output.puts "\t<tr>"
-            writeSource last_source_block
-            writeInstruction start_addr, pair[:assembly_lineno]
-            output.puts "\t</tr>"
+            writeCode last_source_block, [start_addr, pair[:assembly_lineno]]
 
             # update
             start_addr = pair[:assembly_lineno]
@@ -168,13 +179,11 @@ class HTMLWriter
             puts "addr up source down"
 
           # addr up and source is the same
+          # basically, this happens when the function is end
           elsif pair[:assembly_lineno] > start_addr and
                 pair[:source_lineno] == last_source_block[1]
                 puts "debug #{last_source_block}"
-            output.puts "\t<tr>"
-            writeSource last_source_block
-            writeInstruction start_addr, pair[:assembly_lineno]
-            output.puts "\t</tr>"
+            writeCode last_source_block, [start_addr, pair[:assembly_lineno]], true
 
             # update
             last_source_block[0] = last_source_block[1]+1
@@ -187,6 +196,7 @@ class HTMLWriter
 
           end # end state machine
 
+          # set end(ET) flag for next iteration
           if pair[:end].nil?
             last_end = false
           else
