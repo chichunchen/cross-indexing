@@ -174,4 +174,4 @@ end
 debug = DwarfDecode.new "#{ARGV[0]}"
 # p debug.functions
 # p debug.subroutine
-p debug.line_info
+# p debug.line_info
