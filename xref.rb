@@ -68,7 +68,6 @@ class HTMLWriter
 
   # Write c source to web page using an [start, end] array
   def writeSource source_block, endFlag=nil
-    @out.puts "\t\t<td>"
     if source_block[0] != source_block[1]
       (source_block[0]..source_block[1]).each do |e|
         @out.puts "\t\t\t#{@source[e]}<br>"
@@ -76,7 +75,6 @@ class HTMLWriter
     else
       @out.puts "\t\t\t#{@source[source_block[0]]}<br>"
     end
-    @out.puts "\t\t</td>" # end of instruction td
   end
 
   # Write instruction to web page using given start and end assembly address
@@ -86,8 +84,9 @@ class HTMLWriter
     if endFlag.nil?
       start_addr, last_addr = range[0], range[1]
     elsif endFlag == true
-      name = @objdump.instructions_hash[range[0]][:func]
+      # find instruction's function name using start_addr
       start_addr = range[0]
+      name = @objdump.instructions_hash[start_addr][:func]
       last_addr = @objdump.functions[name].instructions.last[:addr] + 1
     end
     @out.puts "\t\t<td>"
@@ -100,7 +99,18 @@ class HTMLWriter
   # Write source and instruction using given range
   def writeCode sourceRange, instructRange, endFlag=nil
     @out.puts "\t<tr>"
+    @out.puts "\t\t<td>"
+
+    # If sourceRange[0] is the first instruction in the Function
+    # then print out the tag.
+    name = @objdump.instructions_hash[instructRange[0]][:func]
+    if @objdump.functions[name].instructions.first[:addr] == instructRange[0]
+      @out.puts "\t\t\t<a name=\"#{name}\">"
+    end
+
     writeSource sourceRange, endFlag
+
+    @out.puts "\t\t</td>" # end of instruction td
     writeInstruction instructRange, endFlag
     @out.puts "\t</tr>"
   end
