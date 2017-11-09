@@ -70,7 +70,7 @@ class HTMLWriter
   def writeSource source_block
     @out.puts "\t\t<td>"
     if source_block[0] != source_block[1]
-      ((source_block[0]+1)..source_block[1]).each do |e|
+      (source_block[0]..source_block[1]).each do |e|
         @out.puts "\t\t\t#{@source[e]}<br>"
       end
     else
@@ -115,7 +115,7 @@ class HTMLWriter
             writeSource last_source_block
             writeInstruction start_addr, pair[:assembly_lineno]
             output.puts "\t</tr>"
-            last_source_block[0] = pair[:source_lineno]
+            last_source_block[0] = pair[:source_lineno]+1
             start_addr = pair[:assembly_lineno]
             last_diff_file = pair[:uri]
 
@@ -129,7 +129,7 @@ class HTMLWriter
             writeInstruction start_addr, pair[:assembly_lineno]
             output.puts "\t</tr>"
 
-            last_source_block[0] = last_source_block[1]
+            last_source_block[0] = last_source_block[1]+1
             last_source_block[1] = pair[:source_lineno]
             puts "test last difffile"
             p last_source_block
@@ -151,17 +151,14 @@ class HTMLWriter
 
             # update
             start_addr = pair[:assembly_lineno]
-            last_source_block[0] = last_source_block[1]
+            last_source_block[0] = last_source_block[1]+1
             last_source_block[1] = pair[:source_lineno]
 
           # addr up and source down
           elsif pair[:assembly_lineno] > start_addr and
                 pair[:source_lineno] < last_source_block[1]
-            # ugly solution, but it works
-            temp = last_source_block
-            temp[0] = temp[0] - 1
             output.puts "\t<tr>"
-            writeSource temp
+            writeSource last_source_block
             writeInstruction start_addr, pair[:assembly_lineno]
             output.puts "\t</tr>"
 
@@ -173,13 +170,14 @@ class HTMLWriter
           # addr up and source is the same
           elsif pair[:assembly_lineno] > start_addr and
                 pair[:source_lineno] == last_source_block[1]
+                puts "debug #{last_source_block}"
             output.puts "\t<tr>"
             writeSource last_source_block
             writeInstruction start_addr, pair[:assembly_lineno]
             output.puts "\t</tr>"
 
             # update
-            last_source_block[0] = last_source_block[1]
+            last_source_block[0] = last_source_block[1]+1
             last_source_block[1] = pair[:source_lineno]
           
           # if addr is the same and source up
