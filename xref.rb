@@ -1,7 +1,7 @@
 require './dwarfdump'
 require './objdump'
 
-class HTMLWriter
+class CrossIndex
     @@folder_name = 'HTML'
     @@index_file = 'index.html'
     @@templatefront = ' <!DOCTYPE html>
@@ -59,6 +59,15 @@ class HTMLWriter
                         # each element is nil if not printed, not nil (true) is printed
     @last_func_name = nil
 
+    # init header file used list
+    Dir.glob("*.h") do |filename|
+      line_count = `wc -l "#{filename}"`.strip.split(' ')[0].to_i
+      @used_list[filename] = Array.new(line_count+1)
+    end
+  end
+
+  # Translate all .c/.h to crossing indexing web page
+  def sourceToHTML
     # create new HTML folder
     if Dir.exist? @@folder_name
       # puts "rm -rf #{@@folder_name}"
@@ -68,56 +77,57 @@ class HTMLWriter
       Dir.mkdir @@folder_name
     end
 
-    # init header file used list
-    Dir.glob("*.h") do |filename|
-      line_count = `wc -l "#{filename}"`.strip.split(' ')[0].to_i
-      @used_list[filename] = Array.new(line_count+1)
-    end
-
-    # producing web pages using all c source files
-    Dir.glob("*.c") do |filename|
-      @source = []
-      @filename = filename
-      @out = nil
-      @dest = @@folder_name + '/' + @filename + '.html'
-      @allfiles << @filename + '.html'
-
-      # convert all sources into array
-      File.open(@filename, "r") do |input|
-        input.each_line.with_index do |line, index|
-          @source[index+1] = line
-        end
-      end
-
-      # reinitialize used object
-      @used_list[@filename] = Array.new(@source.size)
-      @used_list_counter = 1
-
-      writeWebPage
-    end
-
-    # add index.html
-    File.open(@@folder_name + '/' + @@index_file, "w") do |output|
-      @allfiles.each do |file|
-        output.puts "<a href=\"#{File.join(Dir.pwd, file)}\">"
-        output.puts file
-        output.puts "</a>"
-        output.puts "<br>"
-      end
-
-      # link to main
-      output.puts "<a href=\"#{File.join(Dir.pwd, @main_at)}\#main\">"
-      output.puts "link to main"
-      output.puts "</a>"
-      output.puts "<br>"
-
-      # when and where xref was run
-      output.puts "<p> xref was run on #{Dir.pwd} </p>"
-      output.puts "<p> xref was run at #{Time.now} </p>"
-    end
+    c2WebPage
+    writeIndexPage
   end
 
   private
+
+    # Producing web pages using all c source files
+    def c2WebPage
+      Dir.glob("*.c") do |filename|
+        @source = []
+        @filename = filename
+        @out = nil
+        @dest = @@folder_name + '/' + @filename + '.html'
+        @allfiles << @filename + '.html'
+
+        # convert all sources into array
+        File.open(@filename, "r") do |input|
+          input.each_line.with_index do |line, index|
+            @source[index+1] = line
+          end
+        end
+
+        # reinitialize used object
+        @used_list[@filename] = Array.new(@source.size)
+        @used_list_counter = 1
+
+        writeWebPage
+      end
+    end
+
+    # Write index.html
+    def writeIndexPage
+      File.open(@@folder_name + '/' + @@index_file, "w") do |output|
+        @allfiles.each do |file|
+          output.puts "<a href=\"#{File.join(Dir.pwd, file)}\">"
+          output.puts file
+          output.puts "</a>"
+          output.puts "<br>"
+        end
+
+        # link to main
+        output.puts "<a href=\"#{File.join(Dir.pwd, @main_at)}\#main\">"
+        output.puts "link to main"
+        output.puts "</a>"
+        output.puts "<br>"
+
+        # when and where xref was run
+        output.puts "<p> xref was run on #{Dir.pwd} </p>"
+        output.puts "<p> xref was run at #{Time.now} </p>"
+      end
+    end
 
     # Write the webpage with assembly & source
     def writeWebPage
@@ -406,4 +416,5 @@ class HTMLWriter
     end # end writeHtmlBody
 end
 
-test = HTMLWriter.new ARGV[0]
+test = CrossIndex.new ARGV[0]
+test.sourceToHTML

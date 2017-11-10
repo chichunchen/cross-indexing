@@ -1,17 +1,14 @@
 class Objdump
-  attr_reader :filename, :functions, :instructions, :instructions_hash
+  attr_reader :functions, :instructions, :instructions_hash
 
-  def initialize(filename)
-    @filename = filename
+  def initialize(executable)
     @functions = {}
     @instructions = []
     @instructions_hash = {}
 
-    output = %x{ objdump -d #{filename} }
+    output = %x{ objdump -d #{executable} }
 
     # patterns
-
-    # the func name in the bracket
     func_proto_pattern = /0000000000\w+\s<(\w+)>:/    # name is in group[1]
     instruction_pattern = /^\ {2}(\w{6}):\s+(.+)/     # address in group[1], instruction in group[2]
 
@@ -33,9 +30,7 @@ class Objdump
       end
     end
 
-    @instructions.sort_by! do |obj|
-      obj[:addr]
-    end
+    @instructions.sort_by! { |obj| obj[:addr] }
 
     # return an array of instructions by given start address and end address
     # start address should smaller than end address
