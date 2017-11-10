@@ -118,13 +118,13 @@ class CrossIndex
         end
 
         # link to main
-        output.puts "<a href=\"#{File.join("../", @main_at)}\#main\">"
+        output.puts "<a href=\"#{File.join("./", File.split(@main_at).last)}\#main\">"
         output.puts "link to main"
         output.puts "</a>"
         output.puts "<br>"
 
         # when and where xref was run
-        output.puts "<p> xref was run on #{"./"} </p>"
+        output.puts "<p> xref was run on #{Dir.pwd} </p>"
         output.puts "<p> xref was run at #{Time.now} </p>"
       end
     end
