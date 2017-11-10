@@ -228,7 +228,9 @@ class CrossIndex
 
       # print href link if the code match fixed_address_pattern
       @objdump.getInstructionsByRange(start_addr, last_addr).each do |ins|
-        # if high_pc -> low_pc exists, then print local branch link
+
+        # if high_pc -> low_pc exists, then store the instruction address
+        # in branchFlag, which is for printing the tag at last line
         if not @dwarf.lexical_rev[@filename][ins[:addr]].nil?
           branchFlag = ins[:addr]
 
@@ -239,20 +241,20 @@ class CrossIndex
             @out.puts "\t\t\t <a href=\"##{tag[1]}\">"
             @out.puts "\t\t\t#{ins[:addr].to_s(16)}: #{modified_code}<br>"
             @out.puts "\t\t\t </a>"
+
+        # print last instruction with tag if branchFlag is set
         elsif not branchFlag.nil? and @objdump.getInstructionsByRange(start_addr, last_addr).last == ins
+          last_instruction = @objdump.getInstructionsByRange(start_addr, last_addr).last
+          puts branchFlag.to_s(16)
+          puts @dwarf.lexical_rev[@filename][branchFlag].to_s(16)
+          puts @objdump.instructions_hash[branchFlag]
+          @out.puts "\t\t\t <a href=\"##{@dwarf.lexical_rev[@filename][branchFlag].to_s(16)}\">"
+          @out.puts "\t\t\t#{last_instruction[:addr].to_s(16)}: #{last_instruction[:code]}<br>"
+          @out.puts "\t\t\t </a>"
+
         else
           @out.puts "\t\t\t#{ins[:addr].to_s(16)}: #{ins[:code]}<br>"
         end
-      end
-
-      if branchFlag
-        last_instruction = @objdump.getInstructionsByRange(start_addr, last_addr).last
-#        puts branchFlag.to_s(16)
-#        puts @dwarf.lexical_rev[@filename][branchFlag].to_s(16)
-#        puts @objdump.instructions_hash[branchFlag]
-        @out.puts "\t\t\t <a href=\"##{@dwarf.lexical_rev[@filename][branchFlag].to_s(16)}\">"
-        @out.puts "\t\t\t#{last_instruction[:addr].to_s(16)}: #{last_instruction[:code]}<br>"
-        @out.puts "\t\t\t </a>"
       end
 
       @out.puts "\t\t</td>" # end of instruction td
