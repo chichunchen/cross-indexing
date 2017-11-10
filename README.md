@@ -21,6 +21,9 @@ http://www.cs.rochester.edu/courses/254/fall2017/assignments/xref.shtml
         - @functions  : hash {filename => Function instances}
         - @subroutine : has  {filename => Subroutine content}
             - each element of subroutine content is: {:local_addr => 0x.. :low_pc => 0x.., high_pc => dec, call_file => *.c|h, call_line => 0x..}
+        - @min_lno    : hash {filename => minimum lineno (int)}
+        - @intervals  : hash {filename => [low_addr(int), high_addr(int)]}
+            - There are some lineno that cannot be matched. So store address instead and judge the range of address.
 
     - Function class
         - @local_addr : 0x????????

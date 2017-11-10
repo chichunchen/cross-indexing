@@ -70,8 +70,6 @@ class HTMLWriter
     Dir.glob("*.h") do |filename|
       line_count = `wc -l "#{filename}"`.strip.split(' ')[0].to_i
       @used_list[filename] = Array.new(line_count+1)
-      p filename
-      p @used_list[filename]
     end
 
     # producing web pages using all c source files
@@ -269,7 +267,6 @@ class HTMLWriter
                 @used_list[last_diff_file][lineno] = true
               end
               break if source_end-1 == lineno
-              puts "s: #{source_end} index: #{index}"
             end
             @out.puts "\t\t</td>"
             writeInstruction [start_addr, pair[:assembly_lineno]]
