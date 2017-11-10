@@ -195,7 +195,6 @@ class HTMLWriter
 
       # mark new range with uniq used_list_counter
       @used_list_counter += 1
-      p @used_list
     end
 
     # Write instruction to web page using given start and end assembly address
@@ -234,7 +233,12 @@ class HTMLWriter
     # Write source and instruction using given range
     def writeCode sourceRange, instructRange, endFlag=nil, repeatFlag=nil
       @out.puts "\t<tr>"
-      @out.puts "\t\t<td>"
+
+      if repeatFlag.nil?
+        @out.puts "\t\t<td>"
+      else
+        @out.puts "\t\t<td class=\"grey\">"
+      end
 
       # If sourceRange[0] is the first instruction in the Function
       # then print out the tag.
@@ -251,7 +255,7 @@ class HTMLWriter
 
       writeSource @source, sourceRange, endFlag, repeatFlag
 
-      @out.puts "\t\t</td>" # end of instruction td
+      @out.puts "\t\t</td>" # end of source code td
       writeInstruction instructRange, endFlag
       @out.puts "\t</tr>"
     end
@@ -339,6 +343,7 @@ class HTMLWriter
                         [start_addr, pair[:assembly_lineno]],
                         nil,    # not ET
                         true    # repeat
+              puts "grey out"
             end
 
             # update
@@ -350,8 +355,22 @@ class HTMLWriter
           elsif pair[:assembly_lineno] > start_addr and
                 pair[:source_lineno] < last_source_block[1]
 
-            # no inline
-            writeCode last_source_block, [start_addr, pair[:assembly_lineno]]
+            # if no repeated the range, then just print it
+            if @used_list[@filename][last_source_block[0]].nil?
+              writeCode last_source_block, [start_addr, pair[:assembly_lineno]]
+
+            # if repeated the range, then print inline source code
+            else
+              arr = @used_list[@filename].each_index.select do |i|
+                @used_list[@filename][i] ==
+                @used_list[@filename][last_source_block[0]]
+              end
+              writeCode [arr[0], arr[-1]],
+                        [start_addr, pair[:assembly_lineno]],
+                        nil,    # not ET
+                        true    # repeat
+              puts "grey out"
+            end
 
             # update
             start_addr = pair[:assembly_lineno]
