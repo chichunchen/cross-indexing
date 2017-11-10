@@ -80,7 +80,7 @@ class Objdump
 end
 
 # test
-ooo = Objdump.new "a.out"
+# ooo = Objdump.new "a.out"
 #p ooo.to_s
 # p ooo.functions['func']
 # p ooo.getInstructionsByRange(4195712, 4195728)

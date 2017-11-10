@@ -118,7 +118,7 @@ class CrossIndex
         end
 
         # link to main
-        output.puts "<a href=\"#{File.join("./", @main_at)}\#main\">"
+        output.puts "<a href=\"#{File.join("../", @main_at)}\#main\">"
         output.puts "link to main"
         output.puts "</a>"
         output.puts "<br>"
