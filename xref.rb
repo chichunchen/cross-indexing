@@ -78,14 +78,38 @@ class HTMLWriter
 
   private
 
+    # Encode normal string to html
+    def htmlEncoding string
+      space_pattern = /(^\s+)(.*)/
+      result = ""
+
+      string.gsub!(/\&/, '&amp;')
+      string.gsub!(/\>/, '&gt;')
+      string.gsub!(/\</, '&lt;')
+
+      if string.match space_pattern
+        # temp[1] -> spaces
+        # temp[2] -> code
+        temp = string.match space_pattern
+        temp[1].size.times { |i| result += '&nbsp;' }
+        result += temp[2]
+        result
+      else
+        result = string
+      end
+        result
+    end
+
     # Write c source to web page using an [start, end] array
     def writeSource source_block, endFlag=nil
       if source_block[0] != source_block[1]
         (source_block[0]..source_block[1]).each do |e|
-          @out.puts "\t\t\t#{@source[e]}<br>"
+          @out.puts(htmlEncoding("#{@source[e]}"))
+          @out.puts "<br>"
         end
       else
-        @out.puts "\t\t\t#{@source[source_block[0]]}<br>"
+        @out.puts(htmlEncoding("#{@source[source_block[0]]}"))
+        @out.puts "<br>"
       end
     end
 
@@ -143,9 +167,9 @@ class HTMLWriter
     def writeHtmlBody
       dest = @filename + ".html"
       dline_info = @dwarf.line_info[@filename]
-      start_addr = nil                  # the assembly address from last iteration
+      start_addr = nil
       last_source_block = [nil, nil]    # the source block from last iteration
-      last_diff_file = nila             # check diff uri
+      last_diff_file = nil              # check diff uri
       last_end = nil                    # check ET
 
       File.open("./" + @filename, "r") do |input|
@@ -208,7 +232,11 @@ class HTMLWriter
             # Address up and source down
             elsif pair[:assembly_lineno] > start_addr and
                   pair[:source_lineno] < last_source_block[1]
+
+              # no inline
               writeCode last_source_block, [start_addr, pair[:assembly_lineno]]
+
+              # if inline
 
               # update
               start_addr = pair[:assembly_lineno]
