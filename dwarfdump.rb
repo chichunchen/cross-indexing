@@ -1,7 +1,12 @@
 
 # This function recursively dig into the type information of a variable.
 # Returns [type of type(base, pointer, const, array); type_name]
-def dig_type(address, whole_code)
+
+def dig_type(a, b)
+    return []
+end
+
+def dig_rec_type(address, whole_code)
     res = []
     type_info = whole_code.scan(/<#{address}>\s*DW_TAG_([a-zA-Z]+)_type/)
     # If the size of res is 0, then find for typedef. Implement later
@@ -70,7 +75,12 @@ class Function
     # The format is like:
     # [..., [[...], [...]], [..., [..., [...]]]] 
     # Each [] is like a {} in C code, the sequence is the same as in the C code.
-    def extract_blocks(code, scope_no, whole_code)
+    
+    def extract_blocks(a,b,c)
+        return []
+    end
+
+    def extract_rec_blocks(code, scope_no, whole_code)
         res = code.scan(/< #{scope_no}><(\w+)>\s*DW_TAG_variable\s*DW_AT_name\s*(\w*$)\s*DW_AT_decl_file.*?\/([^\/]+?)\s*DW_AT_decl_line\s*(\w*$)\s*DW_AT_type\s*<(\w*)>/)
         res.map! { |var|
             Variable.new(var, whole_code)
@@ -107,7 +117,7 @@ end
 
 
 class DwarfDecode
-    attr_reader :global_var, :line_info, :functions, :subroutine, :min_lno, :intervals
+    attr_reader :global_var, :line_info, :functions, :subroutine, :min_lno, :intervals, :lexical
 
     def initialize(src_file)
         # each element is: [file_name, debug_info_content, debug_line_content]
@@ -118,6 +128,7 @@ class DwarfDecode
         @subroutine = {}
         @min_lno    = {}
         @intervals  = {}
+        @lexical    = {}
 
         debug_info = output.scan(/COMPILE_UNIT.+?DW_AT_language.+?$\s*DW_AT_name\s*(.+?$).+?LOCAL_SYMBOLS(.+?)\.debug_line(.+?)\.debug_macro/m)
         debug_info.each do |file|
@@ -131,6 +142,16 @@ class DwarfDecode
             @functions[file_name] = []
             @subroutine[file_name] = []
             @intervals[file_name] = []
+            @lexical[file_name] = {}
+            
+            lex = file[1].scan(/DW_TAG_lexical_block\s*DW_AT_low_pc\s*(\w+)\s*DW_AT_high_pc\s*<offset-from-lowpc>(\d+)/)
+            lex.each do |block|
+                low = block[0].to_i(16)
+                high = low + block[1].to_i
+                @lexical[file_name][low] = high
+            end
+
+
             used_file.each do |each_file|
                 # each element is: [local_address, check_if_static, name, decl_file, decl_line, type_check_info, low_pc, high_pc, function_content, (unimportant thing)]
                 tmp_func = file[1].scan(/<(\w+)>\s*DW_TAG_subprogram(.*?)DW_AT_name\s*(\w+$)\s*DW_AT_decl_file.*?(#{each_file[0]})\s*DW_AT_decl_line\s*(\w*$)\s*(.*?)DW_AT_low_pc\s*(\w+$)\s*DW_AT_high_pc\s*<offset-from-lowpc>(\d+$)(.*?)(< 1>|\z)/m)
@@ -196,4 +217,4 @@ debug = DwarfDecode.new "#{ARGV[0]}"
 # p debug.functions
 # p debug.subroutine
 # p debug.line_info
-# p debug.intervals
+ p debug.lexical
