@@ -130,13 +130,26 @@ class DwarfDecode
         @intervals  = {}
         @lexical    = {}
 
-        debug_info = output.scan(/COMPILE_UNIT.+?DW_AT_language.+?$\s*DW_AT_name\s*(.+?$).+?LOCAL_SYMBOLS(.+?)\.debug_line(.+?)\.debug_macro/m)
-        debug_info.each do |file|
+        tmp = output.split(".debug_aranges")[0]
+        compile_unit = tmp.split("<header overall")
+        compile_unit.shift
+
+        compile_unit.each do |unit|
+            main_part = unit.split(".debug_line")
+            info = main_part[0]
+            line = main_part[1]
+            debug_info = info.scan(/DW_AT_language.+?$\s*DW_AT_name\s*(.+?$).+?LOCAL_SYMBOLS(.+?)\z/m)[0]
+            debug_line = line.scan(/<pc>(.+?\n\n)/m)[0]
+            if debug_line.nil? then
+                next
+            end
+            debug_line = debug_line[0]
             
-            file_name = file[0] # .split('.')[0]
-           
+
+            file_name = debug_info[0] # .split('.')[0]
+            
             # What files this .c file has included (including itself)
-            used_file = file[2].scan(/\/([^\/]+?\..)/).uniq
+            used_file = debug_line.scan(/\/([^\/]+?\..)/).uniq
 
             @global_var[file_name] = []
             @functions[file_name] = []
@@ -144,7 +157,7 @@ class DwarfDecode
             @intervals[file_name] = []
             @lexical[file_name] = {}
             
-            lex = file[1].scan(/DW_TAG_lexical_block\s*DW_AT_low_pc\s*(\w+)\s*DW_AT_high_pc\s*<offset-from-lowpc>(\d+)/)
+            lex = debug_info[1].scan(/DW_TAG_lexical_block\s*DW_AT_low_pc\s*(\w+)\s*DW_AT_high_pc\s*<offset-from-lowpc>(\d+)/)
             lex.each do |block|
                 low = block[0].to_i(16)
                 high = low + block[1].to_i
@@ -154,13 +167,13 @@ class DwarfDecode
 
             used_file.each do |each_file|
                 # each element is: [local_address, check_if_static, name, decl_file, decl_line, type_check_info, low_pc, high_pc, function_content, (unimportant thing)]
-                tmp_func = file[1].scan(/<(\w+)>\s*DW_TAG_subprogram(.*?)DW_AT_name\s*(\w+$)\s*DW_AT_decl_file.*?(#{each_file[0]})\s*DW_AT_decl_line\s*(\w*$)\s*(.*?)DW_AT_low_pc\s*(\w+$)\s*DW_AT_high_pc\s*<offset-from-lowpc>(\d+$)(.*?)(< 1>|\z)/m)
+                tmp_func = debug_info[1].scan(/<(\w+)>\s*DW_TAG_subprogram(.*?)DW_AT_name\s*(\w+$)\s*DW_AT_decl_file.*?(#{each_file[0]})\s*DW_AT_decl_line\s*(\w*$)\s*(.*?)DW_AT_low_pc\s*(\w+$)\s*DW_AT_high_pc\s*<offset-from-lowpc>(\d+$)(.*?)(< 1>|\z)/m)
                 
                 # each element is: [local_address, name, decl_file_name, lineno(hex), type(address)]
-                tmp_var = file[1].scan(/< 1><(\w+)>\s*DW_TAG_variable\s*DW_AT_name\s*(\w*$)\s*DW_AT_decl_file.*?(#{each_file[0]})\s*DW_AT_decl_line\s*(\w*$)\s*DW_AT_type\s*<(\w*)>/)
+                tmp_var = debug_info[1].scan(/< 1><(\w+)>\s*DW_TAG_variable\s*DW_AT_name\s*(\w*$)\s*DW_AT_decl_file.*?(#{each_file[0]})\s*DW_AT_decl_line\s*(\w*$)\s*DW_AT_type\s*<(\w*)>/)
 
                 # each element is: [local_addr_refer_to_name, low_pc, high_pc, call_file, call_line(hex)]
-                tmp_sub = file[1].scan(/DW_TAG_inlined_subroutine\s*DW_AT_abstract_origin\s*<(\w+)>\s*DW_AT_low_pc\s*(\w+$)\s*DW_AT_high_pc\s*<offset-from-lowpc>(\d+)\s*DW_AT_call_file.*?\/([^\/]+?..)\s*DW_AT_call_line\s*(\w+)/)
+                tmp_sub = debug_info[1].scan(/DW_TAG_inlined_subroutine\s*DW_AT_abstract_origin\s*<(\w+)>\s*DW_AT_low_pc\s*(\w+$)\s*DW_AT_high_pc\s*<offset-from-lowpc>(\d+)\s*DW_AT_call_file.*?\/([^\/]+?..)\s*DW_AT_call_line\s*(\w+)/)
                 @global_var[file_name].concat(tmp_var)
                 @functions[file_name].concat(tmp_func)
                 @subroutine[file_name].concat(tmp_sub)
@@ -173,15 +186,15 @@ class DwarfDecode
             }
 
             @global_var[file_name].map! { |var|
-                Variable.new(var, file[1])
+                Variable.new(var, debug_info[1])
             }
         
             @functions[file_name].map! { |block|
-                Function.new(block, file[1])
+                Function.new(block, debug_info[1])
             }
            
             # each element is: [real_address, lineno, uri or ET msg]
-            sourcelineAndAssembly = file[2].scan(/(0x\w+)\s*\[\s*(\d+),.+?NS(.*$)/)
+            sourcelineAndAssembly = debug_line.scan(/(0x\w+)\s*\[\s*(\d+),.+?NS(.*$)/)
             @line_info[file_name] = sourcelineAndAssembly
             @line_info[file_name].map! { |tuple|
                 {
@@ -216,5 +229,5 @@ end
 debug = DwarfDecode.new "#{ARGV[0]}"
 # p debug.functions
 # p debug.subroutine
-# p debug.line_info
- p debug.lexical
+p debug.line_info
+# p debug.lexical
