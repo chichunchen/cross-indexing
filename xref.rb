@@ -53,10 +53,13 @@ class HTMLWriter
     @objdump = Objdump.new "#{@executable}"
     @allfiles = []
     @main_at = nil
+    @used_list = {}     # key is the source filename
+                        # value is the bitmap(array) with size of source and
+                        # each element is nil if not printed, not nil (true) is printed
 
     # create new HTML folder
     if Dir.exist? @@folder_name
-      puts "rm -rf #{@@folder_name}"
+      # puts "rm -rf #{@@folder_name}"
       system 'rm', '-rf', @@folder_name
       Dir.mkdir @@folder_name
     else
@@ -77,6 +80,8 @@ class HTMLWriter
           @source[index+1] = line
         end
       end
+
+      @used_list[@filename] = Array.new(@source.size)
 
       writeWebPage
     end
@@ -141,13 +146,23 @@ class HTMLWriter
     def writeSource source_block, endFlag=nil
       if source_block[0] != source_block[1]
         (source_block[0]..source_block[1]).each do |e|
-          @out.puts(htmlEncoding("#{@source[e]}"))
-          @out.puts "<br>"
+          # TODO
+          # if e is the smallest in dwarf
+          # then print from 1
+
+          # print if haven't print it
+          if @used_list[@filename][e].nil?
+            @out.puts(htmlEncoding("#{@source[e]}"))
+            @out.puts "<br>"
+            @used_list[@filename][e] = true
+          end
         end
       else
         @out.puts(htmlEncoding("#{@source[source_block[0]]}"))
         @out.puts "<br>"
+        @used_list[@filename][source_block[0]] = true
       end
+        p @used_list
     end
 
     # Write instruction to web page using given start and end assembly address
