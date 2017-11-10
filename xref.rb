@@ -214,6 +214,7 @@ class CrossIndex
     def writeInstruction range, endFlag=nil
       fixed_address_pattern = /(\b[a-f0-9]{6}\ )/
       func_pattern = /<([\w\+]+)>/
+      branchFlag = nil
 
       if endFlag.nil?
         start_addr, last_addr = range[0], range[1]
@@ -227,16 +228,33 @@ class CrossIndex
 
       # print href link if the code match fixed_address_pattern
       @objdump.getInstructionsByRange(start_addr, last_addr).each do |ins|
-        if fixed_address_pattern.match ins[:code] and func_pattern.match ins[:code]
-          tag = func_pattern.match ins[:code]
-          modified_code = ins[:code].gsub(/\ <[\w\+]*>/, '')
-          @out.puts "\t\t\t <a href=\"##{tag[1]}\">"
-          @out.puts "\t\t\t#{ins[:addr].to_s(16)}: #{modified_code}<br>"
-          @out.puts "\t\t\t </a>"
+        # if high_pc -> low_pc exists, then print local branch link
+        if not @dwarf.lexical_rev[@filename][ins[:addr]].nil?
+          branchFlag = ins[:addr]
+
+        # if match fixed_address_pattern then print subroutine href link
+        elsif fixed_address_pattern.match ins[:code] and func_pattern.match ins[:code] and branchFlag.nil?
+            tag = func_pattern.match ins[:code]
+            modified_code = ins[:code].gsub(/\ <[\w\+]*>/, '')
+            @out.puts "\t\t\t <a href=\"##{tag[1]}\">"
+            @out.puts "\t\t\t#{ins[:addr].to_s(16)}: #{modified_code}<br>"
+            @out.puts "\t\t\t </a>"
+        elsif not branchFlag.nil? and @objdump.getInstructionsByRange(start_addr, last_addr).last == ins
         else
           @out.puts "\t\t\t#{ins[:addr].to_s(16)}: #{ins[:code]}<br>"
         end
       end
+
+      if branchFlag
+        last_instruction = @objdump.getInstructionsByRange(start_addr, last_addr).last
+        puts branchFlag.to_s(16)
+        puts @dwarf.lexical_rev[@filename][branchFlag].to_s(16)
+        puts @objdump.instructions_hash[branchFlag]
+        @out.puts "\t\t\t <a href=\"##{@dwarf.lexical_rev[@filename][branchFlag].to_s(16)}\">"
+        @out.puts "\t\t\t#{last_instruction[:addr].to_s(16)}: #{last_instruction[:code]}<br>"
+        @out.puts "\t\t\t </a>"
+      end
+
       @out.puts "\t\t</td>" # end of instruction td
     end
 
@@ -244,16 +262,22 @@ class CrossIndex
     def writeCode sourceRange, instructRange, endFlag=nil, repeatFlag=nil
       @out.puts "\t<tr>"
 
-      if repeatFlag.nil?
-        @out.puts "\t\t<td>"
-      else
+      # Add html tag attribute for source code block
+      if not repeatFlag.nil?
         @out.puts "\t\t<td class=\"grey\">"
+      else
+        @out.puts "\t\t<td>"
       end
+
+      name = @objdump.instructions_hash[instructRange[0]][:func]
+
+      # If has local branch
+      if not @dwarf.lexical[@filename][instructRange[0]].nil?
+        @out.puts "\t\t<a name=\"#{instructRange[0].to_s(16)}\">"
 
       # If sourceRange[0] is the first instruction in the Function
       # then print out the tag.
-      name = @objdump.instructions_hash[instructRange[0]][:func]
-      if @objdump.functions[name].instructions.first[:addr] == instructRange[0]
+      elsif @objdump.functions[name].instructions.first[:addr] == instructRange[0]
         @out.puts "\t\t\t<a name=\"#{name}\">"
 
         # [WARNIGN] for record the filename of main function, which is 
@@ -353,7 +377,6 @@ class CrossIndex
                         [start_addr, pair[:assembly_lineno]],
                         nil,    # not ET
                         true    # repeat
-              puts "grey out"
             end
 
             # update
@@ -379,7 +402,6 @@ class CrossIndex
                         [start_addr, pair[:assembly_lineno]],
                         nil,    # not ET
                         true    # repeat
-              puts "grey out"
             end
 
             # update
