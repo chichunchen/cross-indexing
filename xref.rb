@@ -66,6 +66,14 @@ class HTMLWriter
       Dir.mkdir @@folder_name
     end
 
+    # init header file used list
+    Dir.glob("*.h") do |filename|
+      line_count = `wc -l "#{filename}"`.strip.split(' ')[0].to_i
+      @used_list[filename] = Array.new(line_count+1)
+      p filename
+      p @used_list[filename]
+    end
+
     # producing web pages using all c source files
     Dir.glob("*.c") do |filename|
       @source = []
@@ -119,7 +127,7 @@ class HTMLWriter
       end
     end
 
-    # Encode normal string to html
+    # Encode normal string to html.
     def htmlEncoding string
       space_pattern = /(^\s+)(.*)/
       result = ""
@@ -142,8 +150,9 @@ class HTMLWriter
       return result
     end
 
-    # Write c source to web page using an [start, end] array
-    def writeSource source_block, endFlag=nil
+    # Write source code (which can be .c/.h) to web page using an
+    # source_block: [start, end] array.
+    def writeSource source, source_block, endFlag=nil
       if source_block[0] != source_block[1]
         (source_block[0]..source_block[1]).each do |e|
           # TODO
@@ -152,17 +161,16 @@ class HTMLWriter
 
           # print if haven't print it
           if @used_list[@filename][e].nil?
-            @out.puts(htmlEncoding("#{@source[e]}"))
+            @out.puts(htmlEncoding("#{source[e]}"))
             @out.puts "<br>"
             @used_list[@filename][e] = true
           end
         end
       else
-        @out.puts(htmlEncoding("#{@source[source_block[0]]}"))
+        @out.puts(htmlEncoding("#{source[source_block[0]]}"))
         @out.puts "<br>"
         @used_list[@filename][source_block[0]] = true
       end
-        p @used_list
     end
 
     # Write instruction to web page using given start and end assembly address
@@ -211,7 +219,7 @@ class HTMLWriter
         end
       end
 
-      writeSource sourceRange, endFlag
+      writeSource @source, sourceRange, endFlag
 
       @out.puts "\t\t</td>" # end of instruction td
       writeInstruction instructRange, endFlag
@@ -251,7 +259,18 @@ class HTMLWriter
             # should print all from source file
             @out.puts "\t<tr>"
             @out.puts "\t\t<td>"
-            @out.puts "outerrrr #{pair[:source_lineno]} : #{last_diff_file}"
+            source_end = last_source_block[0]
+            # write file outside the @source file
+            File.open(last_diff_file, "r").each_with_index do |input, index|
+              lineno = index+1
+              if @used_list[last_diff_file][lineno].nil?
+                @out.puts(htmlEncoding("#{input}"))
+                @out.puts "<br>"
+                @used_list[last_diff_file][lineno] = true
+              end
+              break if source_end-1 == lineno
+              puts "s: #{source_end} index: #{index}"
+            end
             @out.puts "\t\t</td>"
             writeInstruction [start_addr, pair[:assembly_lineno]]
             @out.puts "\t</tr>"
