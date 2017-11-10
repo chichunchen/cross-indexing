@@ -118,13 +118,13 @@ class CrossIndex
         end
 
         # link to main
-        output.puts "<a href=\"#{File.join("../", @main_at)}\#main\">"
+        output.puts "<a href=\"#{File.join("./", File.split(@main_at).last)}\#main\">"
         output.puts "link to main"
         output.puts "</a>"
         output.puts "<br>"
 
         # when and where xref was run
-        output.puts "<p> xref was run on #{"./"} </p>"
+        output.puts "<p> xref was run on #{Dir.pwd} </p>"
         output.puts "<p> xref was run at #{Time.now} </p>"
       end
     end
@@ -247,9 +247,9 @@ class CrossIndex
 
       if branchFlag
         last_instruction = @objdump.getInstructionsByRange(start_addr, last_addr).last
-        puts branchFlag.to_s(16)
-        puts @dwarf.lexical_rev[@filename][branchFlag].to_s(16)
-        puts @objdump.instructions_hash[branchFlag]
+#        puts branchFlag.to_s(16)
+#        puts @dwarf.lexical_rev[@filename][branchFlag].to_s(16)
+#        puts @objdump.instructions_hash[branchFlag]
         @out.puts "\t\t\t <a href=\"##{@dwarf.lexical_rev[@filename][branchFlag].to_s(16)}\">"
         @out.puts "\t\t\t#{last_instruction[:addr].to_s(16)}: #{last_instruction[:code]}<br>"
         @out.puts "\t\t\t </a>"
@@ -345,10 +345,10 @@ class CrossIndex
             @out.puts "\t</tr>"
 
             # update
-            puts "test last difffile"
+            # puts "test last difffile"
             last_source_block[0] = last_source_block[1]+1
             last_source_block[1] = pair[:source_lineno]
-            p last_source_block
+            # p last_source_block
             last_diff_file = nil
             start_addr = pair[:assembly_lineno]
 
@@ -432,7 +432,7 @@ class CrossIndex
           else
             last_end = true
           end
-          p last_source_block
+          # p last_source_block
         end # end if
       end # end read
     end # end writeHtmlBody
