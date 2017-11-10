@@ -53,9 +53,11 @@ class HTMLWriter
     @objdump = Objdump.new "#{@executable}"
     @allfiles = []
     @main_at = nil
+    @used_list_counter = 1
     @used_list = {}     # key is the source filename
                         # value is the bitmap(array) with size of source and
                         # each element is nil if not printed, not nil (true) is printed
+    @last_func_name = nil
 
     # create new HTML folder
     if Dir.exist? @@folder_name
@@ -87,7 +89,9 @@ class HTMLWriter
         end
       end
 
+      # reinitialize used object
       @used_list[@filename] = Array.new(@source.size)
+      @used_list_counter = 1
 
       writeWebPage
     end
@@ -148,9 +152,22 @@ class HTMLWriter
       return result
     end
 
+    # Return the name of function if the given source line is declaration of
+    # functoin, otherwise, return currently @last_func_name
+    def currentFuncProto source_line
+      function_proto_pattern = /\w+\s+(\w+)\(\)[^;]/ # [1] is the name of function
+
+      func_match = function_proto_pattern.match source_line
+      if func_match.nil?
+        @last_func_name
+      else
+        func_match[1]
+      end
+    end
+
     # Write source code (which can be .c/.h) to web page using an
     # source_block: [start, end] array.
-    def writeSource source, source_block, endFlag=nil
+    def writeSource source, source_block, endFlag=nil, repeatFlag=nil
       # if e is the smallest in dwarf
       # then print from line 1
       if @dwarf.min_lno[@filename] == source_block[0]
@@ -159,18 +176,26 @@ class HTMLWriter
 
       if source_block[0] != source_block[1]
         (source_block[0]..source_block[1]).each do |e|
+          # store last function name
+          @last_func_name = currentFuncProto source[e]
+
           # print if haven't print it
-          if @used_list[@filename][e].nil?
+          if @used_list[@filename][e].nil? or not repeatFlag.nil?
             @out.puts(htmlEncoding("#{source[e]}"))
             @out.puts "<br>"
-            @used_list[@filename][e] = true
+            @used_list[@filename][e] = [@last_func_name, @used_list_counter]
           end
         end
       else
         @out.puts(htmlEncoding("#{source[source_block[0]]}"))
+        @last_func_name = currentFuncProto source[source_block[0]]
         @out.puts "<br>"
-        @used_list[@filename][source_block[0]] = true
+        @used_list[@filename][source_block[0]] = [@last_func_name, @used_list_counter]
       end
+
+      # mark new range with uniq used_list_counter
+      @used_list_counter += 1
+      p @used_list
     end
 
     # Write instruction to web page using given start and end assembly address
@@ -190,6 +215,8 @@ class HTMLWriter
         last_addr = @objdump.functions[name].instructions.last[:addr] + 1
       end
       @out.puts "\t\t<td>"
+
+      # print href link if the code match fixed_address_pattern
       @objdump.getInstructionsByRange(start_addr, last_addr).each do |ins|
         if fixed_address_pattern.match ins[:code] and func_pattern.match ins[:code]
           tag = func_pattern.match ins[:code]
@@ -205,7 +232,7 @@ class HTMLWriter
     end
 
     # Write source and instruction using given range
-    def writeCode sourceRange, instructRange, endFlag=nil
+    def writeCode sourceRange, instructRange, endFlag=nil, repeatFlag=nil
       @out.puts "\t<tr>"
       @out.puts "\t\t<td>"
 
@@ -214,12 +241,15 @@ class HTMLWriter
       name = @objdump.instructions_hash[instructRange[0]][:func]
       if @objdump.functions[name].instructions.first[:addr] == instructRange[0]
         @out.puts "\t\t\t<a name=\"#{name}\">"
+
+        # [WARNIGN] for record the filename of main function, which is 
+        # not a good solution puting it here.
         if @main_at.nil? and name == 'main'
           @main_at = @dest
         end
       end
 
-      writeSource @source, sourceRange, endFlag
+      writeSource @source, sourceRange, endFlag, repeatFlag
 
       @out.puts "\t\t</td>" # end of instruction td
       writeInstruction instructRange, endFlag
@@ -233,6 +263,8 @@ class HTMLWriter
       last_source_block = [nil, nil]    # the source block from last iteration
       last_diff_file = nil              # check diff uri
       last_end = nil                    # check ET
+      last_func = nil                   # check if inline happens, renew to nil
+                                        # once a function is end
 
       File.open("./" + @filename, "r") do |input|
         @out.puts "\t<!-- #{@filename} -->"
@@ -292,7 +324,22 @@ class HTMLWriter
           # Address up and source up
           elsif pair[:assembly_lineno] > start_addr and
                 pair[:source_lineno] > last_source_block[1]
-            writeCode last_source_block, [start_addr, pair[:assembly_lineno]]
+
+            # if no repeated the range, then just print it
+            if @used_list[@filename][last_source_block[0]].nil?
+              writeCode last_source_block, [start_addr, pair[:assembly_lineno]]
+
+            # if repeated the range, then print inline source code
+            else
+              arr = @used_list[@filename].each_index.select do |i|
+                @used_list[@filename][i] ==
+                @used_list[@filename][last_source_block[0]]
+              end
+              writeCode [arr[0], arr[-1]],
+                        [start_addr, pair[:assembly_lineno]],
+                        nil,    # not ET
+                        true    # repeat
+            end
 
             # update
             start_addr = pair[:assembly_lineno]
@@ -305,8 +352,6 @@ class HTMLWriter
 
             # no inline
             writeCode last_source_block, [start_addr, pair[:assembly_lineno]]
-
-            # if inline
 
             # update
             start_addr = pair[:assembly_lineno]
