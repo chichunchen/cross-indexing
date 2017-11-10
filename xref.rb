@@ -151,12 +151,14 @@ class HTMLWriter
     # Write source code (which can be .c/.h) to web page using an
     # source_block: [start, end] array.
     def writeSource source, source_block, endFlag=nil
+      # if e is the smallest in dwarf
+      # then print from line 1
+      if @dwarf.min_lno[@filename] == source_block[0]
+        source_block[0] = 1
+      end
+
       if source_block[0] != source_block[1]
         (source_block[0]..source_block[1]).each do |e|
-          # TODO
-          # if e is the smallest in dwarf
-          # then print from 1
-
           # print if haven't print it
           if @used_list[@filename][e].nil?
             @out.puts(htmlEncoding("#{source[e]}"))
