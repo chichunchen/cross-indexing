@@ -2,6 +2,8 @@ require './dwarfdump'
 require './objdump'
 
 class HTMLWriter
+    @@folder_name = 'HTML'
+    @@index_file = 'index.html'
     @@templatefront = ' <!DOCTYPE html>
 <html>
 <head>
@@ -42,41 +44,75 @@ class HTMLWriter
   # and it currently reads the binary filename from argv[0], which
   # might not be a good idea, but do it later.
   #
-  # @out is being used inconsistent currently,
-  # should modify it if have free time.
-  #
   # public function:
   # initialize
   # writeWebPage
-  def initialize filename
-    @filename = filename
-    @dwarf = DwarfDecode.new "#{ARGV[0]}"
-    @objdump = Objdump.new "#{ARGV[0]}"
-    @source = []
-    @out = nil
-    File.open(filename, "r") do |input|
-      input.each_line.with_index do |line, index|
-        @source[index+1] = line
+  def initialize executable
+    @executable = executable
+    @dwarf = DwarfDecode.new "#{@executable}"
+    @objdump = Objdump.new "#{@executable}"
+    @allfiles = []
+    @main_at = nil
+
+    # create new HTML folder
+    if Dir.exist? @@folder_name
+      puts "rm -rf #{@@folder_name}"
+      system 'rm', '-rf', @@folder_name
+      Dir.mkdir @@folder_name
+    else
+      Dir.mkdir @@folder_name
+    end
+
+    # producing web pages using all c source files
+    Dir.glob("*.c") do |filename|
+      @source = []
+      @filename = filename
+      @out = nil
+      @dest = @@folder_name + '/' + @filename + '.html'
+      @allfiles << @filename + '.html'
+
+      # convert all sources into array
+      File.open(@filename, "r") do |input|
+        input.each_line.with_index do |line, index|
+          @source[index+1] = line
+        end
       end
-    end
-  end
 
-  # Write the webpage with assembly & source
-  def writeWebPage
-    dest = @filename + ".html"
-
-    File.open(dest, "w") do |output|
-        output.puts @@templatefront
+      writeWebPage
     end
 
-    writeHtmlBody
+    # add index.html
+    File.open(@@folder_name + '/' + @@index_file, "w") do |output|
+      @allfiles.each do |file|
+        output.puts "<a href=\"#{File.join(Dir.pwd, file)}\">"
+        output.puts file
+        output.puts "</a>"
+        output.puts "<br>"
+      end
 
-    File.open(dest, "a") do |output|
-        output.puts @@templateend
+      # link to main
+      output.puts "<a href=\"#{File.join(Dir.pwd, @main_at)}\#main\">"
+      output.puts "link to main"
+      output.puts "</a>"
+      output.puts "<br>"
+
+      # when and where xref was run
+      output.puts "<p> xref was run on #{Dir.pwd} </p>"
+      output.puts "<p> xref was run at #{Time.now} </p>"
     end
   end
 
   private
+
+    # Write the webpage with assembly & source
+    def writeWebPage
+      File.open(@dest, "w") do |output|
+        @out = output
+        @out.puts @@templatefront
+        writeHtmlBody
+        @out.puts @@templateend
+      end
+    end
 
     # Encode normal string to html
     def htmlEncoding string
@@ -154,6 +190,9 @@ class HTMLWriter
       name = @objdump.instructions_hash[instructRange[0]][:func]
       if @objdump.functions[name].instructions.first[:addr] == instructRange[0]
         @out.puts "\t\t\t<a name=\"#{name}\">"
+        if @main_at.nil? and name == 'main'
+          @main_at = @dest
+        end
       end
 
       writeSource sourceRange, endFlag
@@ -165,7 +204,6 @@ class HTMLWriter
 
     # Print the whole source and assembly using given source filename
     def writeHtmlBody
-      dest = @filename + ".html"
       dline_info = @dwarf.line_info[@filename]
       start_addr = nil
       last_source_block = [nil, nil]    # the source block from last iteration
@@ -173,111 +211,101 @@ class HTMLWriter
       last_end = nil                    # check ET
 
       File.open("./" + @filename, "r") do |input|
-        File.open(dest, "a") do |output|
-          @out = output
-          @out.puts "\t<!-- #{@filename} -->"
-          dline_info.each do |pair|
+        @out.puts "\t<!-- #{@filename} -->"
+        dline_info.each do |pair|
 
-            # Initial
-            if start_addr.nil?
-              # update
-              start_addr = pair[:assembly_lineno]
-              last_source_block = [pair[:source_lineno], pair[:source_lineno]]
-              puts "#{@filename} initial #{start_addr} : #{last_source_block}"
+          # Initial
+          if start_addr.nil?
+            # update
+            start_addr = pair[:assembly_lineno]
+            last_source_block = [pair[:source_lineno], pair[:source_lineno]]
+            puts "#{@filename} initial #{start_addr} : #{last_source_block}"
 
-            # Check uri is another file
-            elsif not pair[:uri].nil? and @filename != pair[:uri]
-              writeCode last_source_block, [start_addr, pair[:assembly_lineno]]
+          # Check uri is another file
+          elsif not pair[:uri].nil? and @filename != pair[:uri]
+            writeCode last_source_block, [start_addr, pair[:assembly_lineno]]
 
-              # update
-              last_source_block[0] = pair[:source_lineno]+1
-              start_addr = pair[:assembly_lineno]
-              last_diff_file = pair[:uri]
+            # update
+            last_source_block[0] = pair[:source_lineno]+1
+            start_addr = pair[:assembly_lineno]
+            last_diff_file = pair[:uri]
 
-            # If the last iteration has a different uri
-            elsif last_diff_file
-              # should print all from source file
-              output.puts "\t<tr>"
-              output.puts "\t\t<td>"
-              output.puts "outerrrr #{pair[:source_lineno]} : #{last_diff_file}"
-              output.puts "\t\t</td>"
-              writeInstruction [start_addr, pair[:assembly_lineno]]
-              output.puts "\t</tr>"
+          # If the last iteration has a different uri
+          elsif last_diff_file
+            # should print all from source file
+            @out.puts "\t<tr>"
+            @out.puts "\t\t<td>"
+            @out.puts "outerrrr #{pair[:source_lineno]} : #{last_diff_file}"
+            @out.puts "\t\t</td>"
+            writeInstruction [start_addr, pair[:assembly_lineno]]
+            @out.puts "\t</tr>"
 
-              # update
-              puts "test last difffile"
-              last_source_block[0] = last_source_block[1]+1
-              last_source_block[1] = pair[:source_lineno]
-              p last_source_block
-              last_diff_file = nil
-              start_addr = pair[:assembly_lineno]
-
-            # Last iteration is ET
-            elsif last_end == true
-
-              # update
-              start_addr = pair[:assembly_lineno]
-              last_source_block = [pair[:source_lineno], pair[:source_lineno]]
-
-            # Address up and source up
-            elsif pair[:assembly_lineno] > start_addr and
-                  pair[:source_lineno] > last_source_block[1]
-              writeCode last_source_block, [start_addr, pair[:assembly_lineno]]
-
-              # update
-              start_addr = pair[:assembly_lineno]
-              last_source_block[0] = last_source_block[1]+1
-              last_source_block[1] = pair[:source_lineno]
-
-            # Address up and source down
-            elsif pair[:assembly_lineno] > start_addr and
-                  pair[:source_lineno] < last_source_block[1]
-
-              # no inline
-              writeCode last_source_block, [start_addr, pair[:assembly_lineno]]
-
-              # if inline
-
-              # update
-              start_addr = pair[:assembly_lineno]
-              last_source_block = [pair[:source_lineno], pair[:source_lineno]]
-              puts "addr up source down"
-
-            # Address up and source is the same
-            # basically, this happens when the function is end
-            elsif pair[:assembly_lineno] > start_addr and
-                  pair[:source_lineno] == last_source_block[1]
-                  puts "debug #{last_source_block}"
-              writeCode last_source_block, [start_addr, pair[:assembly_lineno]], true
-
-              # update
-              last_source_block[0] = last_source_block[1]+1
-              last_source_block[1] = pair[:source_lineno]
-            
-            # If addr is the same and source up
-            elsif pair[:assembly_lineno] == start_addr and
-                  pair[:source_lineno] > last_source_block[1]
-              # update
-              last_source_block[1] = pair[:source_lineno]
-
-            end # end state machine
-
-            # Set end(ET) flag for next iteration
-            if pair[:end].nil?
-              last_end = false
-            else
-              last_end = true
-            end
+            # update
+            puts "test last difffile"
+            last_source_block[0] = last_source_block[1]+1
+            last_source_block[1] = pair[:source_lineno]
             p last_source_block
+            last_diff_file = nil
+            start_addr = pair[:assembly_lineno]
+
+          # Last iteration is ET
+          elsif last_end == true
+
+            # update
+            start_addr = pair[:assembly_lineno]
+            last_source_block = [pair[:source_lineno], pair[:source_lineno]]
+
+          # Address up and source up
+          elsif pair[:assembly_lineno] > start_addr and
+                pair[:source_lineno] > last_source_block[1]
+            writeCode last_source_block, [start_addr, pair[:assembly_lineno]]
+
+            # update
+            start_addr = pair[:assembly_lineno]
+            last_source_block[0] = last_source_block[1]+1
+            last_source_block[1] = pair[:source_lineno]
+
+          # Address up and source down
+          elsif pair[:assembly_lineno] > start_addr and
+                pair[:source_lineno] < last_source_block[1]
+
+            # no inline
+            writeCode last_source_block, [start_addr, pair[:assembly_lineno]]
+
+            # if inline
+
+            # update
+            start_addr = pair[:assembly_lineno]
+            last_source_block = [pair[:source_lineno], pair[:source_lineno]]
+
+          # Address up and source is the same
+          # basically, this happens when the function is end
+          elsif pair[:assembly_lineno] > start_addr and
+                pair[:source_lineno] == last_source_block[1]
+            writeCode last_source_block, [start_addr, pair[:assembly_lineno]], true
+
+            # update
+            last_source_block[0] = last_source_block[1]+1
+            last_source_block[1] = pair[:source_lineno]
+          
+          # If addr is the same and source up
+          elsif pair[:assembly_lineno] == start_addr and
+                pair[:source_lineno] > last_source_block[1]
+            # update
+            last_source_block[1] = pair[:source_lineno]
+
+          end # end state machine
+
+          # Set end(ET) flag for next iteration
+          if pair[:end].nil?
+            last_end = false
+          else
+            last_end = true
           end
-        end # end append
+          p last_source_block
+        end # end if
       end # end read
     end # end writeHtmlBody
 end
 
-c_files = Dir["*.c"]
-h_files = Dir["*.h"]
-test = HTMLWriter.new "bar.c"
-test.writeWebPage
-test = HTMLWriter.new "foo.c"
-test.writeWebPage
+test = HTMLWriter.new ARGV[0]
