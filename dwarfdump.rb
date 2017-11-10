@@ -6,15 +6,24 @@ def dig_type(a, b)
     return []
 end
 
-def dig_rec_type(address, whole_code)
+def dig_wasted_type(address, whole_code)
     res = []
     type_info = whole_code.scan(/<#{address}>\s*DW_TAG_([a-zA-Z]+)_type/)
     # If the size of res is 0, then find for typedef. Implement later
+    if type_info[0].nil? then
+        type_info = whole_code.scan(/<#{address}>\s*DW_TAG_(typedef)/)
+        
+    end
+
     res << type_info[0][0] 
     
     if res[0] == "base"
         tmp = whole_code.scan(/<#{address}>\s*DW_TAG_base_type.*?DW_AT_name\s*?(\w.*?$)/m)
         res << tmp[0][0]
+#    elsif res[0] == "typedef"
+#        tmp = whole_code.scan(/<#{address}>\s*DW_TAG_typedef\s*DW_AT_name\s*(\w+)/)
+#        res << tmp[0][0]
+        
     else
         tmp = whole_code.scan(/<#{address}>\s*DW_TAG_#{res[0]}_type.*?DW_AT_type\s*<(\w+)>/m)
         res << dig_type(tmp[0][0], whole_code)
@@ -76,11 +85,8 @@ class Function
     # [..., [[...], [...]], [..., [..., [...]]]] 
     # Each [] is like a {} in C code, the sequence is the same as in the C code.
     
-    def extract_blocks(a,b,c)
-        return []
-    end
 
-    def extract_rec_blocks(code, scope_no, whole_code)
+    def extract_blocks(code, scope_no, whole_code)
         res = code.scan(/< #{scope_no}><(\w+)>\s*DW_TAG_variable\s*DW_AT_name\s*(\w*$)\s*DW_AT_decl_file.*?\/([^\/]+?)\s*DW_AT_decl_line\s*(\w*$)\s*DW_AT_type\s*<(\w*)>/)
         res.map! { |var|
             Variable.new(var, whole_code)
@@ -228,7 +234,8 @@ class DwarfDecode
     end
 end    
 
-debug = DwarfDecode.new "#{ARGV[0]}"
+# debug = DwarfDecode.new "#{ARGV[0]}"
+# p debug.global_var
 # p debug.functions
 # p debug.subroutine
 # p debug.lexical
