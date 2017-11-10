@@ -117,7 +117,7 @@ end
 
 
 class DwarfDecode
-    attr_reader :global_var, :line_info, :functions, :subroutine, :min_lno, :intervals, :lexical
+    attr_reader :global_var, :line_info, :functions, :subroutine, :min_lno, :intervals, :lexical, :lexical_rev
 
     def initialize(src_file)
         # each element is: [file_name, debug_info_content, debug_line_content]
@@ -129,6 +129,7 @@ class DwarfDecode
         @min_lno    = {}
         @intervals  = {}
         @lexical    = {}
+        @lexical_rev = {}
 
         tmp = output.split(".debug_aranges")[0]
         compile_unit = tmp.split("<header overall")
@@ -156,14 +157,15 @@ class DwarfDecode
             @subroutine[file_name] = []
             @intervals[file_name] = []
             @lexical[file_name] = {}
+            @lexical_rev[file_name] = {}
             
             lex = debug_info[1].scan(/DW_TAG_lexical_block\s*DW_AT_low_pc\s*(\w+)\s*DW_AT_high_pc\s*<offset-from-lowpc>(\d+)/)
             lex.each do |block|
                 low = block[0].to_i(16)
                 high = low + block[1].to_i
                 @lexical[file_name][low] = high
+                @lexical_rev[file_name][high] = low
             end
-
 
             used_file.each do |each_file|
                 # each element is: [local_address, check_if_static, name, decl_file, decl_line, type_check_info, low_pc, high_pc, function_content, (unimportant thing)]
@@ -229,5 +231,6 @@ end
 debug = DwarfDecode.new "#{ARGV[0]}"
 # p debug.functions
 # p debug.subroutine
-p debug.line_info
 # p debug.lexical
+# p debug.line_info
+# p debug.lexical_rev
