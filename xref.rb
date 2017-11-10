@@ -133,7 +133,8 @@ class HTMLWriter
       else
         result = string
       end
-        result
+
+      return result
     end
 
     # Write c source to web page using an [start, end] array

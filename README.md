@@ -4,12 +4,10 @@ http://www.cs.rochester.edu/courses/254/fall2017/assignments/xref.shtml
 - TODO
     - [X] objdump, dwarfdump information extraction
     - [X] Convert the source code to HTML, with side-by-side assembly and source, and with embedded branch-target links. 
-    - [ ] Place the HTML file(s) into a subdirectory named HTML, with an extra file index.html that contains a link to the main HTML file(s), a location-specific link to the beginning of the code for main, and information about when and where the xref tool was run. 
-    - [ ] About "assembly centric": display assembly-language instructions, in **address order**, and show **next to** them the corresponding source.
+    - [X] Place the HTML file(s) into a subdirectory named HTML, with an extra file index.html that contains a link to the main HTML file(s), a location-specific link to the beginning of the code for main, and information about when and where the xref tool was run. 
+    - [X] About "assembly centric": display assembly-language instructions, in **address order**, and show **next to** them the corresponding source.
     - [ ] About beautifying: the source line may appear more than once on your web page.  For the sake of clarity, you should print the second and subsequent occurrences in a **grayed-out color**. **Vertical white space** should be inserted as needed to make the alignment work out.
     - [ ] Subtles: `-O2`, `-O3` cases testing; static function with same name in different files.
-    - [ ] HTMLWriter optimization
-
 
 - dwarfdump information
     
