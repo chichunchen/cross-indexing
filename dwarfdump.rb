@@ -50,7 +50,8 @@ end
 
 
 class Function
-    attr_reader :local_addr, :type, :name, :low_pc, :high_pc, :params, :inner_var
+    attr_reader :local_addr, :type, :name, :low_pc, :high_pc, :params, :inner_var,
+            :decl_file
     
     def initialize(block, whole_code)
         @local_addr = block[0]
@@ -123,7 +124,7 @@ end
 
 
 class DwarfDecode
-    attr_reader :global_var, :line_info, :functions, :subroutine, :min_lno, :intervals, :lexical, :lexical_rev
+    attr_reader :global_var, :line_info, :functions, :subroutine, :min_lno, :intervals, :lexical, :lexical_rev, :name2file
 
     def initialize(src_file)
         # each element is: [file_name, debug_info_content, debug_line_content]
@@ -136,6 +137,7 @@ class DwarfDecode
         @intervals  = {}
         @lexical    = {}
         @lexical_rev = {}
+        @name2file = {}
 
         tmp = output.split(".debug_aranges")[0]
         compile_unit = tmp.split("<header overall")
@@ -165,7 +167,7 @@ class DwarfDecode
             @lexical[file_name] = {}
             @lexical_rev[file_name] = {}
             
-            lex = debug_info[1].scan(/DW_TAG_lexical_block\s*DW_AT_low_pc\s*(\w+)\s*DW_AT_high_pc\s*<offset-from-lowpc>(\d+)/)
+            lex = debug_info[1].scan(/DW_TAG_lexical_block\s*DW_AT_low_pc\s*(\w+)\s*DW_AT_high_pc\s*<offset-from-lowpc>(\d+)\s*DW_AT_sibling/)
             lex.each do |block|
                 low = block[0].to_i(16)
                 high = low + block[1].to_i
@@ -200,9 +202,10 @@ class DwarfDecode
             @functions[file_name].map! { |block|
                 Function.new(block, debug_info[1])
             }
+
            
             # each element is: [real_address, lineno, uri or ET msg]
-            sourcelineAndAssembly = debug_line.scan(/(0x\w+)\s*\[\s*(\d+),.+?NS(.*$)/)
+            sourcelineAndAssembly = debug_line.scan(/(0x\w+)\s*\[\s*(\d+),.+?\](.*$)/)
             @line_info[file_name] = sourcelineAndAssembly
             @line_info[file_name].map! { |tuple|
                 {
@@ -231,12 +234,21 @@ class DwarfDecode
               end
             end
         end
+
+        @functions.each do |filename, array|
+            array.each do |func|
+                if func.type.include?("static")
+                    next
+                end
+                @name2file[func.name] = func.decl_file
+            end
+        end
     end
 end    
 
-# debug = DwarfDecode.new "#{ARGV[0]}"
+debug = DwarfDecode.new "#{ARGV[0]}"
 # p debug.global_var
-# p debug.functions
+p debug.name2file
 # p debug.subroutine
 # p debug.lexical
 # p debug.line_info
