@@ -19,7 +19,13 @@ class Objdump
       if (line.match func_proto_pattern)
         m = line.match func_proto_pattern
         last_func_name = m[1]
-        @functions[last_func_name] = Function.new last_func_name
+
+        # if function name is not repeated in objdump
+        if @functions[last_func_name].nil?
+          @functions[last_func_name] = Function.new last_func_name
+        else
+          @functions[last_func_name+"_"] = Function.new last_func_name
+        end
       elsif (line.match instruction_pattern)
         m = line.match instruction_pattern
         instruction = Instruction.new m[1], m[2], last_func_name
