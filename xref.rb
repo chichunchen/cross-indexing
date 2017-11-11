@@ -213,7 +213,7 @@ class CrossIndex
     # If the instruction contains fixed address, then out put its link.
     def writeInstruction range, endFlag=nil
       fixed_address_pattern = /(\b[a-f0-9]{6}\ )/
-      func_pattern = /<([\w\+]+)>/
+      func_pattern = /<(\w+)>/
       branchFlag = nil
 
       if endFlag.nil?
