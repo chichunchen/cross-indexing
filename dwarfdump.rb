@@ -246,9 +246,9 @@ class DwarfDecode
     end
 end    
 
-debug = DwarfDecode.new "#{ARGV[0]}"
+# debug = DwarfDecode.new "#{ARGV[0]}"
 # p debug.global_var
-p debug.name2file
+# p debug.name2file
 # p debug.subroutine
 # p debug.lexical
 # p debug.line_info

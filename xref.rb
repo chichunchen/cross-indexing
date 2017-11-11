@@ -237,11 +237,19 @@ class CrossIndex
         # if match fixed_address_pattern then print subroutine href link
         elsif fixed_address_pattern.match ins[:code] and func_pattern.match ins[:code] and branchFlag.nil?
             tag = func_pattern.match ins[:code]
-            # p tag
-            modified_code = ins[:code].gsub(/\ <[\w\+]*>/, '')
-            @out.puts "\t\t\t <a href=\"##{tag[1]}\">"
-            @out.puts "\t\t\t#{ins[:addr].to_s(16)}: #{modified_code}<br>"
-            @out.puts "\t\t\t </a>"
+            func_file = @dwarf.name2file[tag[1]]
+            if func_file == @filename
+              modified_code = ins[:code].gsub(/\ <[\w\+]*>/, '')
+              @out.puts "\t\t\t <a href=\"##{tag[1]}\">"
+              @out.puts "\t\t\t#{ins[:addr].to_s(16)}: #{modified_code}<br>"
+              @out.puts "\t\t\t </a>"
+            elsif not func_file.nil?
+              temp = func_file + '.html'
+              modified_code = ins[:code].gsub(/\ <[\w\+]*>/, '')
+              @out.puts "\t\t\t <a href=\"#{temp}##{tag[1]}\">"
+              @out.puts "\t\t\t#{ins[:addr].to_s(16)}: #{modified_code}<br>"
+              @out.puts "\t\t\t </a>"
+            end
 
         # print last instruction with tag if branchFlag is set
         elsif not branchFlag.nil? and @objdump.getInstructionsByRange(start_addr, last_addr).last == ins
