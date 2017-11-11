@@ -213,7 +213,7 @@ class CrossIndex
     # If the instruction contains fixed address, then out put its link.
     def writeInstruction range, endFlag=nil
       fixed_address_pattern = /(\b[a-f0-9]{6}\ )/
-      func_pattern = /<([\w\+]+)>/
+      func_pattern = /<([\w^\+]+)>/
       branchFlag = nil
 
       if endFlag.nil?
@@ -237,6 +237,7 @@ class CrossIndex
         # if match fixed_address_pattern then print subroutine href link
         elsif fixed_address_pattern.match ins[:code] and func_pattern.match ins[:code] and branchFlag.nil?
             tag = func_pattern.match ins[:code]
+            # p tag
             modified_code = ins[:code].gsub(/\ <[\w\+]*>/, '')
             @out.puts "\t\t\t <a href=\"##{tag[1]}\">"
             @out.puts "\t\t\t#{ins[:addr].to_s(16)}: #{modified_code}<br>"
@@ -245,9 +246,9 @@ class CrossIndex
         # print last instruction with tag if branchFlag is set
         elsif not branchFlag.nil? and @objdump.getInstructionsByRange(start_addr, last_addr).last == ins
           last_instruction = @objdump.getInstructionsByRange(start_addr, last_addr).last
-          puts branchFlag.to_s(16)
-          puts @dwarf.lexical_rev[@filename][branchFlag].to_s(16)
-          puts @objdump.instructions_hash[branchFlag]
+#          puts branchFlag.to_s(16)
+#          puts @dwarf.lexical_rev[@filename][branchFlag].to_s(16)
+#          puts @objdump.instructions_hash[branchFlag]
           @out.puts "\t\t\t <a href=\"##{@dwarf.lexical_rev[@filename][branchFlag].to_s(16)}\">"
           @out.puts "\t\t\t#{last_instruction[:addr].to_s(16)}: #{last_instruction[:code]}<br>"
           @out.puts "\t\t\t </a>"
@@ -296,7 +297,7 @@ class CrossIndex
       @out.puts "\t</tr>"
     end
 
-    # Print the whole source and assembly using given source filename
+    # Print the whole source and assembly with assembly centric
     def writeHtmlBody
       dline_info = @dwarf.line_info[@filename]
       start_addr = nil
